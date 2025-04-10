@@ -4,8 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Label } from "@/components/ui/label";
 import { Tool, Prompt } from "@modelcontextprotocol/sdk/types.js";
 import { ToolResult } from "./model/tool-result";
 import { ParameterInfo } from "./model/parameter-info";
@@ -18,10 +16,11 @@ import { AlertCircle } from "lucide-react";
 import { Sidebar } from "@/components/sidebar";
 import { ParameterForm } from "@/components/parameter-form";
 import { Header } from "@/components/header";
-import { OpenAIPanel } from "@/components/open-ai-panel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@radix-ui/react-tabs";
 import { getParametersFromPrompt } from "./mcp/get-parameters-from-prompt";
 import { getParametersFromTool } from "./mcp/get-parameters-from-tool";
+import { AIForm } from "@/components/ai-form";
+import { LogArea } from "@/components/log-area";
 
 const SERVER_URL = process.env.NEXT_PUBLIC_MCP_SERVER_URL;
 
@@ -459,8 +458,6 @@ export default function HomePage() {
         arguments: Object.keys(args).length > 0 ? args : undefined,
       });
 
-      console.log(result);
-
       addMessage(`✅ Prompt response received for "${selectedPrompt.name}".`);
       // Prompts often don't return direct results in `getPrompt`,
       // they might trigger other actions or messages. The standard SDK might just return success/error.
@@ -521,87 +518,98 @@ export default function HomePage() {
 
           {/* Main Area (Log + Parameters + Input) */}
           <ResizablePanel defaultSize={75} minSize={30}>
-            <div className="flex flex-col h-full">
-              {/* Log Area */}
-              <div className="flex-1 flex flex-col p-4 overflow-hidden">
-                <Label
-                  htmlFor="messages"
-                  className="mb-2 font-semibold text-xl"
-                >
-                  Connection & Activity Log
-                </Label>
-                <ScrollArea className="flex-1 rounded-md border p-2 bg-muted/30">
-                  {" "}
-                  {/* Slightly different background */}
-                  <pre className="text-sm whitespace-pre-wrap break-words px-2">
-                    {messages.join("\n")}
-                  </pre>
-                  <div ref={messagesEndRef} /> {/* Anchor for scrolling */}
-                </ScrollArea>
-              </div>
-
-              {/* Parameter/Action Area */}
-              <div className="p-4 border-t overflow-y-auto max-h-60">
-                {/* Conditionally render ParameterForm */}
-                {selectedTool && (
-                  <ParameterForm
-                    item={selectedTool}
-                    getParameters={getParameters}
-                    inputs={inputs}
-                    handleInputChange={handleInputChange}
-                    onSubmit={handleCallMcpTool}
-                    isLoading={isLoading}
-                    isConnected={isConnected}
-                    itemType="Tool"
-                  />
-                )}
-                {selectedPrompt && (
-                  <>
-                    <Tabs defaultValue="parameters" className="w-full mt-4">
-                      {" "}
-                      <TabsList className="grid w-full grid-cols-2">
-                        {" "}
-                        <TabsTrigger value="parameters">Parameters</TabsTrigger>
-                        <TabsTrigger value="openai-panel">
-                          OpenAI Panel
-                        </TabsTrigger>{" "}
-                      </TabsList>
-                      <TabsContent value="parameters" className="mt-4">
-                        {" "}
+            <ResizablePanelGroup direction="vertical">
+              <div className="flex flex-col h-full">
+                {/* Log Area */}
+                <ResizablePanel defaultSize={50} minSize={30}>
+                  <div className="p-4 h-full">
+                    <LogArea messages={messages} />
+                  </div>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={50} minSize={30}>
+                  {/* Parameter/Action Area */}
+                  <div className="border-t overflow-y-auto max-h-full">
+                    {/* Conditionally render ParameterForm */}
+                    {selectedTool && (
+                      <div className="p-4">
                         <ParameterForm
-                          item={selectedPrompt}
+                          item={selectedTool}
                           getParameters={getParameters}
                           inputs={inputs}
                           handleInputChange={handleInputChange}
-                          onSubmit={handleCallMcpPrompt}
+                          onSubmit={handleCallMcpTool}
                           isLoading={isLoading}
                           isConnected={isConnected}
-                          itemType="Prompt" // Ensure itemType is correctly passed if needed by ParameterForm
+                          itemType="Tool"
                         />
-                      </TabsContent>
-                      <TabsContent value="openai-panel" className="mt-4">
-                        {" "}
-                        {/* Add spacing if needed */}
-                        {/* OpenAIPanel is placed here */}
-                        <OpenAIPanel addMessage={addMessage} />
-                      </TabsContent>
-                    </Tabs>
-                  </>
-                )}
-                {/* Placeholder when nothing is selected */}
-                {!selectedTool && !selectedPrompt && (
-                  <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-                    <AlertCircle className="h-8 w-8 mb-2" />
-                    <p>
-                      Select a Tool or Prompt from the sidebar to view
-                      parameters and actions.
-                    </p>
-                  </div>
-                )}
-              </div>
+                      </div>
+                    )}
+                    {selectedPrompt && (
+                      <>
+                        <Tabs defaultValue="parameters">
+                          {/* Fixed Tabs Header */}
+                          <div className="fixed bg-[#f0d2d219] w-full grid grid-cols-2 h-16">
+                            <TabsList className="grid grid-cols-2">
+                              <TabsTrigger
+                                className="hover:bg-sky-700"
+                                value="parameters"
+                              >
+                                Parameters
+                              </TabsTrigger>
+                              <TabsTrigger
+                                className="hover:bg-sky-700"
+                                value="openai-panel"
+                              >
+                                OpenAI Panel
+                              </TabsTrigger>
+                            </TabsList>
+                          </div>
 
-              {/* Bottom Input Panel */}
-            </div>
+                          {/* Tabs Content */}
+                          <div className="pt-16 pl-4 pr-4 overflow-y">
+                            {" "}
+                            {/* Adjust pt-20 to match the header's height */}
+                            <TabsContent value="parameters" className="mt-4">
+                              <ParameterForm
+                                item={selectedPrompt}
+                                getParameters={getParameters}
+                                inputs={inputs}
+                                handleInputChange={handleInputChange}
+                                onSubmit={handleCallMcpPrompt}
+                                isLoading={isLoading}
+                                isConnected={isConnected}
+                                itemType="Prompt" // Ensure itemType is correctly passed if needed by ParameterForm
+                              />
+                            </TabsContent>
+                            <TabsContent value="openai-panel" className="mt-4">
+                              <AIForm
+                                mcpClient={mcpClient}
+                                selectedPrompt={selectedPrompt}
+                                isConnected={isConnected}
+                                addMessage={addMessage}
+                              />
+                            </TabsContent>
+                          </div>
+                        </Tabs>
+                      </>
+                    )}
+                    {/* Placeholder when nothing is selected */}
+                    {!selectedTool && !selectedPrompt && (
+                      <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+                        <AlertCircle className="h-8 w-8 mb-2" />
+                        <p>
+                          Select a Tool or Prompt from the sidebar to view
+                          parameters and actions.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </ResizablePanel>
+
+                {/* Bottom Input Panel */}
+              </div>
+            </ResizablePanelGroup>
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
