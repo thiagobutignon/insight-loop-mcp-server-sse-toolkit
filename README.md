@@ -14,10 +14,15 @@ This project provides a Model Context Protocol (MCP) server implementation using
   - 🤖 LLM-powered enhancement of tool descriptions for better contextualization.
   - 📝 Listing available prompts.
 - **✨ Web-based MCP Inspector**: A frontend application (built with Next.js and Shadcn UI) allowing users to:
+
   - 🔗 Connect to the running MCP SSE server.
   - 🔍 View lists of available tools and prompts with their schemas.
   - ⚡ Execute tools and prompts by providing parameters through a form.
   - 📊 Monitor connection status and view activity logs in real-time.
+
+  ![MCP Inspector Front End](docs/mcp-inspector-front-end.png)
+  ![MCP Inspector Tools](docs/mcp-inspector-front-end-tools.png)
+  ![MCP Inspector Prompts](docs/mcp-inspector-front-end-prompts.png)
 
 ## 🧩 Core Components
 
@@ -29,15 +34,23 @@ This project provides a Model Context Protocol (MCP) server implementation using
     - Orchestrates the dynamic loading of tools and prompts using helper functions (`registerToolsFromDirectoryRecursive`, `registerPromptsFromDirectoryRecursive`).
     - Includes dynamic CORS middleware.
 
+![MCP Server with SSE](docs/mcp-server-with-sse.png)
+
 2.  **`script/cli.ts`**:
 
     - A command-line utility designed to aid in the development and maintenance of tools and prompts.
     - Provides an interactive menu for creating new tool/prompt files from templates and improving existing tool descriptions (using an external LLM configured via environment variables).
 
+![Example CLI usage](docs/script-cli.png)
+
 3.  **`mcp-inspector-frontend/`**:
     - A standalone Next.js application serving as a graphical user interface for the MCP server.
     - Connects to the server's `/sse` endpoint using the `@modelcontextprotocol/sdk/client/sse.js` transport.
     - Provides a user-friendly way to inspect server capabilities (tools, prompts) and interact with them.
+
+![MCP Inspector Front End](docs/mcp-inspector-front-end.png)
+![MCP Inspector Tools](docs/mcp-inspector-front-end-tools.png)
+![MCP Inspector Prompts](docs/mcp-inspector-front-end-prompts.png)
 
 ## Getting Started
 
