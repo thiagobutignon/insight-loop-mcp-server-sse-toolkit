@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", // Or newer
+    "module": "NodeNext", // Use NodeNext for modern Node.js ES module support
+    "moduleResolution": "NodeNext",
+    "outDir": "./build", // Output compiled JS here
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true, // If you import JSON files
+    "sourceMap": true // Good for debugging
+  },
+  "include": ["src/**/*"], // Compile files in src
+  "exclude": ["node_modules", "**/*.spec.ts", "dist"]
+}
