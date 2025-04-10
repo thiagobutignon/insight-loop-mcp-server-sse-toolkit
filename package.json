@@ -8,7 +8,14 @@
     "build": "tsc",
     "start": "node build/index.js",
     "dev": "nodemon --watch src --ext ts --exec 'node --loader ts-node/esm src/index.ts'",
-    "tool-manager": "tsx script/cli.ts"
+    "tool-manager": "tsx script/cli.ts",
+    "dev:up": "make dev-up",
+    "dev:down": "make dev-down",
+    "dev:logs": "make dev-logs",
+    "prod:up": "make prod-up",
+    "prod:down": "make prod-down",
+    "prod:logs": "make prod-logs",
+    "docker:clean": "make clean"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.6.0",

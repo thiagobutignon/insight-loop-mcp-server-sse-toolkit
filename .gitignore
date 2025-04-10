@@ -77,6 +77,8 @@ web_modules/
 .env.development.local
 .env.test.local
 .env.production.local
+.env
+.env.prod
 
 # Compiled output
 build/
@@ -120,4 +122,4 @@ public/build/
 # macOS files
 .DS_Store
 .vercel
-.env
+
