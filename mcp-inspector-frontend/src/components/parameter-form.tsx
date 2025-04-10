@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { Tool, Prompt } from "@modelcontextprotocol/sdk/types.js";
 import { Label } from "@/components/ui/label";

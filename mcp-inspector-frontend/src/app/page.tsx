@@ -20,6 +20,8 @@ import { ParameterForm } from "@/components/parameter-form";
 import { Header } from "@/components/header";
 import { OpenAIPanel } from "@/components/open-ai-panel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@radix-ui/react-tabs";
+import { getParametersFromPrompt } from "./mcp/get-parameters-from-prompt";
+import { getParametersFromTool } from "./mcp/get-parameters-from-tool";
 
 const SERVER_URL = process.env.NEXT_PUBLIC_MCP_SERVER_URL;
 
@@ -191,91 +193,75 @@ export default function HomePage() {
     addMessage(`Selected prompt: ${prompt.name}`);
   };
 
-  // Determine parameters more robustly to handle both Tool and Prompt schemas
+  /**
+   * Gets parameter information from either a Tool or a Prompt.
+   *
+   * @param item The Tool or Prompt object, or null.
+   * @param itemType A string literal indicating whether the item is a "Tool" or "Prompt".
+   * @returns An array of ParameterInfo objects, or an empty array if item is null or parameters cannot be determined.
+   */
   const getParameters = (
     item: Tool | Prompt | null,
     itemType: "Tool" | "Prompt"
   ): ParameterInfo[] => {
-    if (!item) return [];
-
-    const parameters: ParameterInfo[] = [];
-    console.log(`----- schema ${JSON.stringify(item)}`);
-
-    // Different approach based on itemType
-    if (itemType === "Tool" && item.inputSchema) {
-      // Handle Tool with inputSchema
-      console.log(
-        `Parsing ${itemType} "${item?.name}" inputSchema:`,
-        item.inputSchema
-      );
-
-      if (
-        item.inputSchema &&
-        typeof item.inputSchema === "object" &&
-        "properties" in item.inputSchema &&
-        typeof item.inputSchema.properties === "object"
-      ) {
-        try {
-          const properties = item.inputSchema.properties as Record<string, any>;
-          const required = Array.isArray(item.inputSchema.required)
-            ? item.inputSchema.required
-            : [];
-
-          Object.entries(properties).forEach(([name, prop]: [string, any]) => {
-            if (prop && typeof prop === "object") {
-              parameters.push({
-                name,
-                type: prop.type || "string",
-                description: prop.description || "",
-                required: required.includes(name),
-                minLength:
-                  typeof prop.minLength === "number"
-                    ? prop.minLength
-                    : undefined,
-              });
-            }
-          });
-        } catch (error) {
-          console.error(
-            `Error processing properties for ${itemType} "${item?.name}":`,
-            error
-          );
-        }
-      }
-    } else if (itemType === "Prompt" && Array.isArray(item.arguments)) {
-      // Handle Prompt with arguments array
-      console.log(
-        `Parsing ${itemType} "${item?.name}" arguments:`,
-        item.arguments
-      );
-
-      try {
-        item.arguments.forEach((arg: any) => {
-          if (arg && typeof arg === "object" && arg.name) {
-            parameters.push({
-              name: arg.name,
-              type: arg.type || "string", // Default to string if not specified
-              description: arg.description || "",
-              required: Boolean(arg.required),
-              minLength:
-                typeof arg.minLength === "number" ? arg.minLength : undefined,
-            });
-          }
-        });
-      } catch (error) {
-        console.error(
-          `Error processing arguments for ${itemType} "${item?.name}":`,
-          error
-        );
-      }
+    if (!item) {
+      console.log("Input item is null. Returning empty parameters.");
+      return [];
     }
 
-    console.log(
-      `Parameters found for ${itemType} "${item?.name}":`,
-      parameters
-    );
+    let parameters: ParameterInfo[] = [];
+    const itemName = item?.name ?? `Unnamed ${itemType}`; // Use nullish coalescing for default name
+
+    console.log(`----- Processing ${itemType}: ${itemName} -----`);
+
+    try {
+      switch (itemType) {
+        case "Tool":
+          // Type guard to ensure 'item' is compatible with 'Tool' before passing
+          if ("inputSchema" in item) {
+            parameters = getParametersFromTool(item as Tool);
+          } else {
+            console.warn(
+              `Item identified as Tool is missing 'inputSchema'. Item:`,
+              item
+            );
+          }
+          break;
+
+        case "Prompt":
+          // Type guard to ensure 'item' is compatible with 'Prompt' before passing
+          if ("arguments" in item) {
+            parameters = getParametersFromPrompt(item as Prompt);
+          } else {
+            console.warn(
+              `Item identified as Prompt is missing 'arguments'. Item:`,
+              item
+            );
+          }
+          break;
+
+        default:
+          // This case should technically be unreachable due to the itemType constraint,
+          // but it's good practice for exhaustive checks.
+          console.warn(`Unknown itemType encountered: ${itemType}`);
+          // itemType is asserted as never here for type safety
+          // const _exhaustiveCheck: never = itemType;
+          break;
+      }
+    } catch (error) {
+      // Catch unexpected errors during the switch or helper function calls
+      console.error(
+        `An unexpected error occurred while processing ${itemType} "${itemName}":`,
+        error
+      );
+      // Return empty array or re-throw depending on desired error handling strategy
+      return [];
+    }
+
+    console.log(`Parameters found for ${itemType} "${itemName}":`, parameters);
     return parameters;
   };
+
   // Handle input change for parameters
   const handleInputChange = (paramName: string, value: any) => {
     setInputs((prev) => {
