@@ -1,4 +1,4 @@
-# Dynamic MCP SSE Server & Development Tools
+# InsightLoop MCP Server SSE, MCP Client Inspector & Development Tools
 
 ## 🚀 Overview
 
