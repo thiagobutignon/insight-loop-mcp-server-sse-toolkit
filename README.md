@@ -32,7 +32,7 @@ This project provides a Model Context Protocol (MCP) server implementation using
 2.  **`script/cli.ts`**:
 
     - A command-line utility designed to aid in the development and maintenance of tools and prompts.
-    - Provides an interactive menu for creating new tool/prompt files from templates and improving existing tool descriptions (potentially using an external LLM configured via environment variables).
+    - Provides an interactive menu for creating new tool/prompt files from templates and improving existing tool descriptions (using an external LLM configured via environment variables).
 
 3.  **`mcp-inspector-frontend/`**:
     - A standalone Next.js application serving as a graphical user interface for the MCP server.
@@ -108,3 +108,82 @@ This project provides a Model Context Protocol (MCP) server implementation using
 - **📡 MCP Server**: Runs in the background (started via `yarn start` or `yarn dev`). It listens for incoming SSE connections on the configured port (default: 3001). Tools and prompts defined in the respective directories will be available to connected clients.
 - **💻 Development CLI**: Execute `node build/script/cli.js` in your terminal. Choose options from the menu to create new tools/prompts or improve descriptions.
 - **✨ MCP Inspector**: Access the frontend application in your web browser (default: `http://localhost:3000`). It will attempt to connect to the `NEXT_PUBLIC_MCP_SERVER_URL`. Once connected, use the sidebar to browse available tools and prompts. Select one to view its details and input parameters, then execute it using the provided form. The log panel shows connection status and interaction history.
+
+## 🗺️ Roadmap
+
+<ul>
+    <li>Docker support</li>
+    <li>MCP Server Resources</li>
+    <li>MCP Server Sampling</li>
+    <li>MCP Server Roots</li>
+    <li>How to deploy?</li>
+</ul>
+
+## ❓ FAQ
+
+1.  What is the MCP SSE Server?
+
+    **Answer:** The MCP (Model Context Protocol) SSE Server is a real-time communication server that uses Server-Sent Events (SSE) to deliver messages to connected clients. It adheres to the MCP standard, facilitating a structured and scalable communication protocol for AI-driven tools and prompts. This design enables efficient updates and interactions, making it ideal for projects that require dynamic, live data streaming and command execution.
+
+2.  How does dynamic tool and prompt registration work?
+
+    **Answer:** Upon starting up or when a new client connection is established, the MCP server automatically scans dedicated directories (`./src/tools` and `./src/prompts`). It registers any new or updated TypeScript files found there. This dynamic discovery process ensures that any changes or additions to your tools and prompts are readily available to connected clients without needing to restart the server manually.
+
+3.  What are Server-Sent Events (SSE) and why are they used?
+
+    **Answer:** Server-Sent Events (SSE) provide a mechanism for servers to push data to clients over a standard HTTP connection. Unlike WebSockets, which enable bi-directional communication, SSE focuses on one-way communication from server to client. This makes SSE particularly well-suited for live updates such as monitoring logs, showing dynamic tool execution status, or streaming notifications in real time.
+
+4.  How do I add or create new tools and prompts?
+
+    **Answer:** You can extend the project easily by adding new TypeScript files to the `./src/tools` or `./src/prompts` directories. Additionally, the project includes a CLI tool that guides you through:
+
+    - Creating a New Tool/Prompt: Use interactive scaffolding that generates boilerplate code and the necessary file structure.
+    - Improving Existing Tool Descriptions: Leverage LLM-powered suggestions to enhance tool context and descriptions, ensuring they are detailed and user-friendly.
+    - Listing Available Prompts: Quickly view a list of prompts available in the system from the command line.
+
+5.  How do I configure the project?
+
+    **Answer:** Before running the project, ensure you configure the environment variables properly:
+
+    - Server Configuration: Copy the `.env.example` file to `.env` in the root directory and update any required API keys or settings.
+    - Frontend Inspector: In the `mcp-inspector-frontend` directory, create a `.env.local` file and specify the MCP server URL (e.g., `NEXT_PUBLIC_MCP_SERVER_URL=http://localhost:3001`). These steps ensure that both the backend server and the frontend interface are properly aligned with your development environment.
+
+6.  How do I run the MCP Server and Inspector?
+
+    **Answer:** After setting up the environment:
+
+    - Building the Project: Run `yarn build` to compile the server and CLI tools.
+    - Starting the Server: Launch the server with `yarn start` (or `yarn dev` if you prefer hot reloading during development).
+    - Running the Inspector: Navigate to the `mcp-inspector-frontend` directory, install dependencies with `yarn install`, then start the application using `yarn dev`. The inspector will typically be available at `http://localhost:3000`.
+
+7.  What is the role of the Development CLI?
+
+    **Answer:** The CLI is a powerful tool designed to enhance your development workflow. It provides:
+
+    - Automated Scaffolding: Quickly generate new tool or prompt files using predefined templates.
+    - LLM-Powered Enhancement: Automatically improve tool descriptions based on natural language processing models for clarity and context.
+    - Prompt Listing: Easily list and manage the available prompts, helping you keep track of your project's interactive components.
+
+8.  How does the web-based MCP Inspector benefit me?
+
+    **Answer:** The MCP Inspector is a user-friendly frontend application that connects to the server’s SSE endpoint. It allows you to:
+
+    - Inspect available tools and prompts, including schema definitions.
+    - Execute tools by filling out parameter forms.
+    - Monitor the connection status and view activity logs in real time. This visual layer is designed to ease the debugging process and provide an intuitive interface for interacting with your MCP server.
+
+9.  How can I contribute or seek support for this project?
+
+    **Answer:** Contributions are welcome! If you wish to help improve this project:
+
+    - Bug Reports and Feature Requests: Use the project’s issue tracker on your repository host (e.g., GitHub).
+    - Pull Requests: Review the contribution guidelines provided in the repository to ensure smooth integration of new code.
+    - Community Support: Engage with the community through discussion forums or project-specific chat channels if available.
+
+10. What are the future enhancements mentioned in the roadmap?
+
+    **Answer:** The current roadmap highlights several exciting directions, including:
+
+    - Docker Support: Simplifying the deployment process using containerization.
+    - MCP Server Resources and Sampling: Enhancing resource management and providing sampling techniques to improve performance.
+    - Deployment Guidelines: Offering comprehensive guides for deploying the MCP server in production environments. These roadmap items are aimed at further refining the project’s scalability and ease of use for a broader audience.
