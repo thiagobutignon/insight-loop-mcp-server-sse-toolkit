@@ -20,9 +20,7 @@ This project provides a Model Context Protocol (MCP) server implementation using
   - ⚡ Execute tools and prompts by providing parameters through a form.
   - 📊 Monitor connection status and view activity logs in real-time.
 
-  ![MCP Inspector Front End](docs/mcp-inspector-front-end.png)
   ![MCP Inspector Tools](docs/mcp-inspector-front-end-tools.png)
-  ![MCP Inspector Prompts](docs/mcp-inspector-front-end-prompts.png)
 
 ## 🧩 Core Components
 
@@ -48,8 +46,6 @@ This project provides a Model Context Protocol (MCP) server implementation using
     - Connects to the server's `/sse` endpoint using the `@modelcontextprotocol/sdk/client/sse.js` transport.
     - Provides a user-friendly way to inspect server capabilities (tools, prompts) and interact with them.
 
-![MCP Inspector Front End](docs/mcp-inspector-front-end.png)
-![MCP Inspector Tools](docs/mcp-inspector-front-end-tools.png)
 ![MCP Inspector Prompts](docs/mcp-inspector-front-end-prompts.png)
 
 ## Getting Started
