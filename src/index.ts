@@ -20,7 +20,7 @@ const transports: { [sessionId: string]: SSEServerTransport } = {};
 
 async function createMcpServer(): Promise<McpServer> {
   const server = new McpServer({
-    name: "example-server",
+    name: "insight-loop-mcp-server-sse",
     version: "1.0.0",
   });
 
