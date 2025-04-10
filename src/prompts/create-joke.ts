@@ -1,12 +1,9 @@
-/**
- * @prompt create-joke
- * @description This prompt instructs the AI to generate a joke based on a given topic and in a specific language.
- * @variables text, language
- */
+// Example: prompts/jokes/create-joke.ts
 
+// No need to import Zod here, the registration script handles schema creation
 const promptDefinition = {
   name: "create-joke",
-  description: "Create the best jokes in the world",
+  description: "Create the best jokes in the world", // Optional but good practice
   content: `
 You are a world-renowned comedian, celebrated for your ability to craft hilarious jokes on any topic. Your jokes are known for their wit, originality, and perfect balance of humor.
 
@@ -32,12 +29,15 @@ If the topic is "coffee" and the language is "English", a possible response migh
 Now, based on the topic "{{text}}" and the language "{{language}}", create a single, hilarious joke.
   `,
   arguments: [
+    // This array will be used to generate the Zod schema
     { name: "text", description: "O tema da piada", required: true },
     {
       name: "language",
       description: "O idioma em que a piada deve ser contada",
       required: true,
     },
+    // Example of an optional argument:
+    // { name: "style", description: "The style of joke (e.g., pun, observation)", required: false }
   ],
 };
 

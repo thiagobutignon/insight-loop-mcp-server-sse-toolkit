@@ -1,8 +1,12 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+  McpServer,
+  PromptCallback,
+} from "@modelcontextprotocol/sdk/server/mcp.js";
 import "dotenv/config";
 import { pathToFileURL } from "url";
 import { globby } from "globby";
 import chalk from "chalk"; // Import chalk
+import { z, ZodTypeAny } from "zod"; // Import Zod
 
 // --- Helper Logs ---
 const log = console.log;
@@ -10,31 +14,69 @@ const logWarn = console.warn;
 const logError = console.error;
 // ---
 
-/**
- * Defines the expected structure of a default export from a prompt module.
- */
+// --- Types (as defined above) ---
+interface ArgumentDefinition {
+  name: string;
+  description: string;
+  required: boolean;
+  // type?: 'string' | 'number' | 'boolean'; // Example for future extension
+}
 interface PromptDefinition {
   name: string;
+  description?: string;
   content: string;
+  arguments?: ArgumentDefinition[];
+}
+type PromptArgsRawShape = { [k: string]: ZodTypeAny };
+// ---
+
+/**
+ * Helper function to replace placeholders like {{variable}} in a string.
+ * @param template The string containing placeholders.
+ * @param values An object with key-value pairs for replacement.
+ * @returns The string with placeholders replaced.
+ */
+function replacePlaceholders(
+  template: string,
+  values: Record<string, any>
+): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    return values.hasOwnProperty(key) ? String(values[key]) : match; // Convert value to string
+  });
+}
+
+/**
+ * Creates a Zod schema object from an array of ArgumentDefinitions.
+ * Currently assumes all arguments are strings.
+ * @param argsDef Array of argument definitions.
+ * @returns A Zod schema object compatible with McpServer.
+ */
+function createArgsSchema(argsDef: ArgumentDefinition[]): PromptArgsRawShape {
+  const schema: PromptArgsRawShape = {};
+  for (const arg of argsDef) {
+    // --- Basic Schema (Assuming String for now) ---
+    // You could extend this based on an optional `arg.type` property
+    let argSchema: ZodTypeAny = z.string().describe(arg.description);
+
+    // --- Handle Optionality ---
+    if (!arg.required) {
+      argSchema = argSchema.optional();
+    }
+
+    schema[arg.name] = argSchema;
+  }
+  return schema;
 }
 
 /**
  * Recursively scans a directory for prompt definition files (.ts or .js)
  * and registers them with the provided McpServer instance.
- *
- * Assumes each prompt file default exports an object matching the
- * PromptDefinition interface: { name: string, content: string }.
- *
- * @param server The McpServer instance to register prompts with.
- * @param baseDirectoryPath The root directory to search for prompt files.
  */
 export async function registerPromptsFromDirectoryRecursive(
   server: McpServer,
   baseDirectoryPath: string
 ): Promise<void> {
-  const isDev = process.env.NODE_ENV !== "PRODUCTION";
-
-  // Define the search pattern for prompt files
+  const isDev = process.env.NODE_ENV !== "production";
   const pattern = isDev
     ? `${baseDirectoryPath}/**/*.ts`
     : `${baseDirectoryPath}/**/*.js`;
@@ -47,13 +89,13 @@ export async function registerPromptsFromDirectoryRecursive(
 
   try {
     const filePaths = await globby(pattern, {
-      absolute: true, // Ensure absolute paths are returned
-      ignore: ["**/*.d.ts", "**/*.map"], // Ignore TypeScript definition and map files
+      absolute: true,
+      ignore: ["**/*.d.ts", "**/*.map"],
     });
 
     if (filePaths.length === 0) {
       logWarn(chalk.yellow("⚠️ No prompt files found matching the pattern."));
-      return; // Exit early if no files found
+      return;
     }
 
     log(
@@ -73,21 +115,77 @@ export async function registerPromptsFromDirectoryRecursive(
       try {
         const module = await import(fileUrl);
 
-        // Check if the default export looks like a PromptDefinition
+        // Basic structure check
         if (
-          module.default &&
-          typeof module.default === "object" &&
-          typeof module.default.name === "string" && // Check for name (string)
-          typeof module.default.content === "string" // Check for content (string)
+          !module.default ||
+          typeof module.default !== "object" ||
+          typeof module.default.name !== "string" ||
+          typeof module.default.content !== "string"
         ) {
-          const promptDef = module.default as PromptDefinition;
+          logWarn(
+            chalk.yellow(
+              `   ⚠️ Skipping ${chalk.cyan(
+                absoluteFilePath
+              )}: Default export does not match minimum PromptDefinition structure ({ name: string, content: string }).`
+            )
+          );
+          continue; // Skip this file
+        }
 
-          // Register the prompt by converting the string content to a handler function
-          server.prompt(promptDef.name, (extra) => {
+        const promptDef = module.default as PromptDefinition;
+        const promptName = promptDef.name;
+        const promptDescription = promptDef.description || ""; // Use description if provided
+
+        // --- Check for Arguments ---
+        if (
+          Array.isArray(promptDef.arguments) &&
+          promptDef.arguments.length > 0
+        ) {
+          // --- Prompt WITH Arguments ---
+          const argsSchema = createArgsSchema(promptDef.arguments);
+
+          // Define the callback that receives validated arguments
+          const callback: PromptCallback<PromptArgsRawShape> = (
+            args,
+            _extra
+          ) => {
+            // Replace placeholders in the content with actual argument values
+            const processedContent = replacePlaceholders(
+              promptDef.content,
+              args
+            );
+
             return {
               messages: [
                 {
-                  role: "user",
+                  role: "user", // Or system, depending on your structure
+                  content: {
+                    type: "text",
+                    text: processedContent,
+                  },
+                },
+              ],
+              // Add any other required properties for the MCP protocol here
+            };
+          };
+
+          // Register using the overload with description and argsSchema
+          server.prompt(promptName, promptDescription, argsSchema, callback);
+          log(
+            chalk.green(
+              `   ✅ Registered prompt: ${chalk.bold(
+                promptName
+              )} (with arguments)`
+            )
+          );
+        } else {
+          // --- Prompt WITHOUT Arguments ---
+          const callback: PromptCallback = (_extra) => {
+            // No arguments, just return the static content
+            return {
+              messages: [
+                {
+                  role: "user", // Or system
                   content: {
                     type: "text",
                     text: promptDef.content,
@@ -96,26 +194,23 @@ export async function registerPromptsFromDirectoryRecursive(
               ],
               // Add any other required properties for the MCP protocol here
             };
-          });
+          };
 
-          // Style the success message
+          // Register using the overload with description (if provided)
+          if (promptDescription) {
+            server.prompt(promptName, promptDescription, callback);
+          } else {
+            server.prompt(promptName, callback);
+          }
           log(
             chalk.green(
-              `   ✅ Registered prompt: ${chalk.bold(promptDef.name)}`
-            )
-          );
-        } else {
-          // Style the warning for incorrect format
-          logWarn(
-            chalk.yellow(
-              `   ⚠️ Skipping ${chalk.cyan(
-                absoluteFilePath
-              )}: Default export does not match expected PromptDefinition structure ({ name: string, content: string }).`
+              `   ✅ Registered prompt: ${chalk.bold(
+                promptName
+              )} (no arguments)`
             )
           );
         }
       } catch (importError: any) {
-        // Style the import/registration error message
         logError(
           chalk.red(
             `   ❌ Error importing or registering prompt from ${chalk.cyan(
@@ -123,16 +218,13 @@ export async function registerPromptsFromDirectoryRecursive(
             )}:`
           )
         );
-        logError(importError); // Log the actual error object
+        logError(importError);
       }
     }
   } catch (err: any) {
-    // Style the directory scanning error message
     logError(
       chalk.red(`❌ Error scanning directory ${chalk.cyan(baseDirectoryPath)}:`)
     );
-    logError(err); // Log the actual error
-    // Optionally re-throw if this is a critical failure
-    // throw err;
+    logError(err);
   }
 }

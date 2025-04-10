@@ -19,6 +19,7 @@ import { Sidebar } from "@/components/sidebar";
 import { ParameterForm } from "@/components/parameter-form";
 import { Header } from "@/components/header";
 import { OpenAIPanel } from "@/components/open-ai-panel";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@radix-ui/react-tabs";
 
 const SERVER_URL = process.env.NEXT_PUBLIC_MCP_SERVER_URL;
 
@@ -105,6 +106,7 @@ export default function HomePage() {
         // List available prompts
         try {
           const promptsResult = await clientInstance.listPrompts();
+          console.log(`------ promptsResult ${JSON.stringify(promptsResult)},`);
           setAvailablePrompts(promptsResult.prompts);
           addMessage(
             `💡 Found prompts: ${
@@ -189,7 +191,7 @@ export default function HomePage() {
     addMessage(`Selected prompt: ${prompt.name}`);
   };
 
-  // Determine parameters (simplified error handling and logging)
+  // Determine parameters more robustly to handle both Tool and Prompt schemas
   const getParameters = (
     item: Tool | Prompt | null,
     itemType: "Tool" | "Prompt"
@@ -197,52 +199,75 @@ export default function HomePage() {
     if (!item) return [];
 
     const parameters: ParameterInfo[] = [];
-    const schema = item?.inputSchema; // Use optional chaining
+    console.log(`----- schema ${JSON.stringify(item)}`);
 
-    console.log(`Parsing ${itemType} "${item?.name}" inputSchema:`, schema);
+    // Different approach based on itemType
+    if (itemType === "Tool" && item.inputSchema) {
+      // Handle Tool with inputSchema
+      console.log(
+        `Parsing ${itemType} "${item?.name}" inputSchema:`,
+        item.inputSchema
+      );
 
-    // Check if schema and schema.properties are valid objects
-    if (
-      schema &&
-      typeof schema === "object" &&
-      "properties" in schema && // Check if properties exist
-      typeof (schema as any).properties === "object" // Check if properties is an object
-    ) {
+      if (
+        item.inputSchema &&
+        typeof item.inputSchema === "object" &&
+        "properties" in item.inputSchema &&
+        typeof item.inputSchema.properties === "object"
+      ) {
+        try {
+          const properties = item.inputSchema.properties as Record<string, any>;
+          const required = Array.isArray(item.inputSchema.required)
+            ? item.inputSchema.required
+            : [];
+
+          Object.entries(properties).forEach(([name, prop]: [string, any]) => {
+            if (prop && typeof prop === "object") {
+              parameters.push({
+                name,
+                type: prop.type || "string",
+                description: prop.description || "",
+                required: required.includes(name),
+                minLength:
+                  typeof prop.minLength === "number"
+                    ? prop.minLength
+                    : undefined,
+              });
+            }
+          });
+        } catch (error) {
+          console.error(
+            `Error processing properties for ${itemType} "${item?.name}":`,
+            error
+          );
+        }
+      }
+    } else if (itemType === "Prompt" && Array.isArray(item.arguments)) {
+      // Handle Prompt with arguments array
+      console.log(
+        `Parsing ${itemType} "${item?.name}" arguments:`,
+        item.arguments
+      );
+
       try {
-        // Cast schema to any to access properties and required later
-        const schemaAny = schema as any;
-        const properties = schemaAny.properties as Record<string, any>;
-        Object.entries(properties).forEach(([name, prop]: [string, any]) => {
-          // Basic check if prop is an object (representing the schema for the property)
-          if (prop && typeof prop === "object") {
+        item.arguments.forEach((arg: any) => {
+          if (arg && typeof arg === "object" && arg.name) {
             parameters.push({
-              name,
-              type: prop.type || "string", // Default to string if type is missing
-              description: prop.description || "", // Default to empty string
-              required:
-                Array.isArray(schemaAny.required) && // Check if required array exists on schemaAny
-                schemaAny.required.includes(name),
+              name: arg.name,
+              type: arg.type || "string", // Default to string if not specified
+              description: arg.description || "",
+              required: Boolean(arg.required),
               minLength:
-                typeof prop.minLength === "number" ? prop.minLength : undefined,
-              // Add other potential properties like 'enum', 'default', 'maximum', 'minimum' if needed
+                typeof arg.minLength === "number" ? arg.minLength : undefined,
             });
-          } else {
-            console.warn(
-              `Skipping invalid property definition for "${name}" in ${itemType} "${item?.name}" schema.`
-            );
           }
         });
       } catch (error) {
         console.error(
-          `Error processing properties for ${itemType} "${item?.name}":`,
+          `Error processing arguments for ${itemType} "${item?.name}":`,
           error
         );
-        addMessage(`⚠️ Error parsing schema for ${itemType} "${item?.name}".`);
       }
-    } else {
-      console.log(
-        `${itemType} "${item?.name}" has no valid inputSchema properties.`
-      );
     }
 
     console.log(
@@ -251,7 +276,6 @@ export default function HomePage() {
     );
     return parameters;
   };
-
   // Handle input change for parameters
   const handleInputChange = (paramName: string, value: any) => {
     setInputs((prev) => {
@@ -441,10 +465,15 @@ export default function HomePage() {
 
       addMessage(`➡️ Sending arguments: ${JSON.stringify(args)}`);
 
+      const instructions = mcpClient.listPrompts();
+      console.log(`---- instructions ${JSON.stringify(instructions)}`);
+
       const result = await mcpClient.getPrompt({
         name: selectedPrompt.name,
         arguments: Object.keys(args).length > 0 ? args : undefined,
       });
+
+      console.log(result);
 
       addMessage(`✅ Prompt response received for "${selectedPrompt.name}".`);
       // Prompts often don't return direct results in `getPrompt`,
@@ -542,17 +571,35 @@ export default function HomePage() {
                 )}
                 {selectedPrompt && (
                   <>
-                    <OpenAIPanel addMessage={addMessage} />
-                    {/* <ParameterForm
-                      item={selectedPrompt}
-                      getParameters={getParameters}
-                      inputs={inputs}
-                      handleInputChange={handleInputChange}
-                      onSubmit={handleCallMcpPrompt}
-                      isLoading={isLoading}
-                      isConnected={isConnected}
-                      itemType="Prompt"
-                    /> */}
+                    <Tabs defaultValue="parameters" className="w-full mt-4">
+                      {" "}
+                      <TabsList className="grid w-full grid-cols-2">
+                        {" "}
+                        <TabsTrigger value="parameters">Parameters</TabsTrigger>
+                        <TabsTrigger value="openai-panel">
+                          OpenAI Panel
+                        </TabsTrigger>{" "}
+                      </TabsList>
+                      <TabsContent value="parameters" className="mt-4">
+                        {" "}
+                        <ParameterForm
+                          item={selectedPrompt}
+                          getParameters={getParameters}
+                          inputs={inputs}
+                          handleInputChange={handleInputChange}
+                          onSubmit={handleCallMcpPrompt}
+                          isLoading={isLoading}
+                          isConnected={isConnected}
+                          itemType="Prompt" // Ensure itemType is correctly passed if needed by ParameterForm
+                        />
+                      </TabsContent>
+                      <TabsContent value="openai-panel" className="mt-4">
+                        {" "}
+                        {/* Add spacing if needed */}
+                        {/* OpenAIPanel is placed here */}
+                        <OpenAIPanel addMessage={addMessage} />
+                      </TabsContent>
+                    </Tabs>
                   </>
                 )}
                 {/* Placeholder when nothing is selected */}
