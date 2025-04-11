@@ -1,0 +1,33 @@
+Business Source License 1.1
+
+Parameters
+
+Licensor: Insight Loop
+Licensed Work: The codebase and architecture for the Insight Loop agentic orchestration framework.
+Additional Use Grant: For non-commercial use only.
+Change Date: April 10, 2040
+Change License: Apache License, Version 2.0
+
+Terms
+
+The Licensor hereby grants you the right to copy, modify, create derivative works, and use the Licensed Work, subject to the following limitations:
+
+1. **Use Limitation**: You may not use the Licensed Work for a Commercial Purpose except as expressly permitted by the Licensor.
+
+2. **Change Date**: The Change Date is fifteen years from the date this license is first applied to the Licensed Work, specifically April 10, 2040.
+
+3. **Change License**: Upon the Change Date, the Licensed Work will be made available under the Change License specified above.
+
+4. **No Sublicensing**: You may not sublicense the Licensed Work under this License. All copies of the Licensed Work you distribute must include this License.
+
+5. **Notice**: The following notice must be included in all copies or substantial portions of the Licensed Work:
+
+This source code is licensed under the Business Source License 1.1, which limits use to non-commercial purposes only. Commercial use is prohibited until April 10, 2040. After this date, this code will be made available under the Apache License 2.0.
+
+kotlin
+Copy
+Edit
+
+6. **Disclaimer**: This Licensed Work is provided "as is", without warranty of any kind, express or implied.
+
+For additional permissions beyond those granted in this license, please contact: contact@insightloop.ai
