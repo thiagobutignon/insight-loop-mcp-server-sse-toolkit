@@ -201,6 +201,7 @@ A `Makefile` is provided in the project root to simplify common Docker operation
 
 - [thiagobutignon](https://github.com/thiagobutignon)
 - [miller00315](https://github.com/miller00315) - Thank you, Miller, for your invaluable contributions. Your innovative ideas, passion for AI, expertise in mathematics, and deep understanding of game theory were crucial to the success of this project. We truly could not have completed it without you. 🚀👽🤖
+- Obrigado, Vicente, por proporcionar os dias mais felizes da minha vida ao seu lado. Sou grato pelas divertidas brincadeiras de policial e por transformar até os dias de chuva em momentos de alegria, quando, enquanto muitos se abrigam, você escolhe se molhar e fazer disso uma grande festa. 🚔👮🏼‍♂️🚨
 
 ## ❓ FAQ
 
