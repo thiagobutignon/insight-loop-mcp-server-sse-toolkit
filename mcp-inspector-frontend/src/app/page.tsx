@@ -4,8 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Label } from "@/components/ui/label";
 import { Tool, Prompt } from "@modelcontextprotocol/sdk/types.js";
 import { ToolResult } from "./model/tool-result";
 import { ParameterInfo } from "./model/parameter-info";
@@ -18,7 +16,11 @@ import { AlertCircle } from "lucide-react";
 import { Sidebar } from "@/components/sidebar";
 import { ParameterForm } from "@/components/parameter-form";
 import { Header } from "@/components/header";
-import { OpenAIPanel } from "@/components/open-ai-panel";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@radix-ui/react-tabs";
+import { getParametersFromPrompt } from "./mcp/get-parameters-from-prompt";
+import { getParametersFromTool } from "./mcp/get-parameters-from-tool";
+import { AIForm } from "@/components/ai-form";
+import { LogArea } from "@/components/log-area";
 
 const SERVER_URL = process.env.NEXT_PUBLIC_MCP_SERVER_URL;
 
@@ -105,6 +107,7 @@ export default function HomePage() {
         // List available prompts
         try {
           const promptsResult = await clientInstance.listPrompts();
+          console.log(`------ promptsResult ${JSON.stringify(promptsResult)},`);
           setAvailablePrompts(promptsResult.prompts);
           addMessage(
             `💡 Found prompts: ${
@@ -189,66 +192,72 @@ export default function HomePage() {
     addMessage(`Selected prompt: ${prompt.name}`);
   };
 
-  // Determine parameters (simplified error handling and logging)
+  /**
+   * Gets parameter information from either a Tool or a Prompt.
+   *
+   * @param item The Tool or Prompt object, or null.
+   * @param itemType A string literal indicating whether the item is a "Tool" or "Prompt".
+   * @returns An array of ParameterInfo objects, or an empty array if item is null or parameters cannot be determined.
+   */
   const getParameters = (
     item: Tool | Prompt | null,
     itemType: "Tool" | "Prompt"
   ): ParameterInfo[] => {
-    if (!item) return [];
-
-    const parameters: ParameterInfo[] = [];
-    const schema = item?.inputSchema; // Use optional chaining
-
-    console.log(`Parsing ${itemType} "${item?.name}" inputSchema:`, schema);
-
-    // Check if schema and schema.properties are valid objects
-    if (
-      schema &&
-      typeof schema === "object" &&
-      "properties" in schema && // Check if properties exist
-      typeof (schema as any).properties === "object" // Check if properties is an object
-    ) {
-      try {
-        // Cast schema to any to access properties and required later
-        const schemaAny = schema as any;
-        const properties = schemaAny.properties as Record<string, any>;
-        Object.entries(properties).forEach(([name, prop]: [string, any]) => {
-          // Basic check if prop is an object (representing the schema for the property)
-          if (prop && typeof prop === "object") {
-            parameters.push({
-              name,
-              type: prop.type || "string", // Default to string if type is missing
-              description: prop.description || "", // Default to empty string
-              required:
-                Array.isArray(schemaAny.required) && // Check if required array exists on schemaAny
-                schemaAny.required.includes(name),
-              minLength:
-                typeof prop.minLength === "number" ? prop.minLength : undefined,
-              // Add other potential properties like 'enum', 'default', 'maximum', 'minimum' if needed
-            });
-          } else {
-            console.warn(
-              `Skipping invalid property definition for "${name}" in ${itemType} "${item?.name}" schema.`
-            );
-          }
-        });
-      } catch (error) {
-        console.error(
-          `Error processing properties for ${itemType} "${item?.name}":`,
-          error
-        );
-        addMessage(`⚠️ Error parsing schema for ${itemType} "${item?.name}".`);
-      }
-    } else {
-      console.log(
-        `${itemType} "${item?.name}" has no valid inputSchema properties.`
-      );
+    if (!item) {
+      console.log("Input item is null. Returning empty parameters.");
+      return [];
     }
 
-    console.log(
-      `Parameters found for ${itemType} "${item?.name}":`,
-      parameters
-    );
+    let parameters: ParameterInfo[] = [];
+    const itemName = item?.name ?? `Unnamed ${itemType}`; // Use nullish coalescing for default name
+
+    console.log(`----- Processing ${itemType}: ${itemName} -----`);
+
+    try {
+      switch (itemType) {
+        case "Tool":
+          // Type guard to ensure 'item' is compatible with 'Tool' before passing
+          if ("inputSchema" in item) {
+            parameters = getParametersFromTool(item as Tool);
+          } else {
+            console.warn(
+              `Item identified as Tool is missing 'inputSchema'. Item:`,
+              item
+            );
+          }
+          break;
+
+        case "Prompt":
+          // Type guard to ensure 'item' is compatible with 'Prompt' before passing
+          if ("arguments" in item) {
+            parameters = getParametersFromPrompt(item as Prompt);
+          } else {
+            console.warn(
+              `Item identified as Prompt is missing 'arguments'. Item:`,
+              item
+            );
+          }
+          break;
+
+        default:
+          // This case should technically be unreachable due to the itemType constraint,
+          // but it's good practice for exhaustive checks.
+          console.warn(`Unknown itemType encountered: ${itemType}`);
+          // itemType is asserted as never here for type safety
+          // const _exhaustiveCheck: never = itemType;
+          break;
+      }
+    } catch (error) {
+      // Catch unexpected errors during the switch or helper function calls
+      console.error(
+        `An unexpected error occurred while processing ${itemType} "${itemName}":`,
+        error
+      );
+      // Return empty array or re-throw depending on desired error handling strategy
+      return [];
+    }
+
+    console.log(`Parameters found for ${itemType} "${itemName}":`, parameters);
     return parameters;
   };
 
@@ -441,6 +450,9 @@ export default function HomePage() {
 
       addMessage(`➡️ Sending arguments: ${JSON.stringify(args)}`);
 
+      const instructions = mcpClient.listPrompts();
+      console.log(`---- instructions ${JSON.stringify(instructions)}`);
+
       const result = await mcpClient.getPrompt({
         name: selectedPrompt.name,
         arguments: Object.keys(args).length > 0 ? args : undefined,
@@ -506,69 +518,98 @@ export default function HomePage() {
 
           {/* Main Area (Log + Parameters + Input) */}
           <ResizablePanel defaultSize={75} minSize={30}>
-            <div className="flex flex-col h-full">
-              {/* Log Area */}
-              <div className="flex-1 flex flex-col p-4 overflow-hidden">
-                <Label
-                  htmlFor="messages"
-                  className="mb-2 font-semibold text-xl"
-                >
-                  Connection & Activity Log
-                </Label>
-                <ScrollArea className="flex-1 rounded-md border p-2 bg-muted/30">
-                  {" "}
-                  {/* Slightly different background */}
-                  <pre className="text-sm whitespace-pre-wrap break-words px-2">
-                    {messages.join("\n")}
-                  </pre>
-                  <div ref={messagesEndRef} /> {/* Anchor for scrolling */}
-                </ScrollArea>
-              </div>
-
-              {/* Parameter/Action Area */}
-              <div className="p-4 border-t overflow-y-auto max-h-60">
-                {/* Conditionally render ParameterForm */}
-                {selectedTool && (
-                  <ParameterForm
-                    item={selectedTool}
-                    getParameters={getParameters}
-                    inputs={inputs}
-                    handleInputChange={handleInputChange}
-                    onSubmit={handleCallMcpTool}
-                    isLoading={isLoading}
-                    isConnected={isConnected}
-                    itemType="Tool"
-                  />
-                )}
-                {selectedPrompt && (
-                  <>
-                    <OpenAIPanel addMessage={addMessage} />
-                    {/* <ParameterForm
-                      item={selectedPrompt}
-                      getParameters={getParameters}
-                      inputs={inputs}
-                      handleInputChange={handleInputChange}
-                      onSubmit={handleCallMcpPrompt}
-                      isLoading={isLoading}
-                      isConnected={isConnected}
-                      itemType="Prompt"
-                    /> */}
-                  </>
-                )}
-                {/* Placeholder when nothing is selected */}
-                {!selectedTool && !selectedPrompt && (
-                  <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-                    <AlertCircle className="h-8 w-8 mb-2" />
-                    <p>
-                      Select a Tool or Prompt from the sidebar to view
-                      parameters and actions.
-                    </p>
+            <ResizablePanelGroup direction="vertical">
+              <div className="flex flex-col h-full">
+                {/* Log Area */}
+                <ResizablePanel defaultSize={50} minSize={30}>
+                  <div className="p-4 h-full">
+                    <LogArea messages={messages} />
                   </div>
-                )}
-              </div>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={50} minSize={30}>
+                  {/* Parameter/Action Area */}
+                  <div className="border-t overflow-y-auto max-h-full">
+                    {/* Conditionally render ParameterForm */}
+                    {selectedTool && (
+                      <div className="p-4">
+                        <ParameterForm
+                          item={selectedTool}
+                          getParameters={getParameters}
+                          inputs={inputs}
+                          handleInputChange={handleInputChange}
+                          onSubmit={handleCallMcpTool}
+                          isLoading={isLoading}
+                          isConnected={isConnected}
+                          itemType="Tool"
+                        />
+                      </div>
+                    )}
+                    {selectedPrompt && (
+                      <>
+                        <Tabs defaultValue="parameters">
+                          {/* Fixed Tabs Header */}
+                          <div className="fixed bg-[#f0d2d219] w-full grid grid-cols-2 h-16">
+                            <TabsList className="grid grid-cols-2">
+                              <TabsTrigger
+                                className="hover:bg-sky-700"
+                                value="parameters"
+                              >
+                                Parameters
+                              </TabsTrigger>
+                              <TabsTrigger
+                                className="hover:bg-sky-700"
+                                value="openai-panel"
+                              >
+                                OpenAI Panel
+                              </TabsTrigger>
+                            </TabsList>
+                          </div>
 
-              {/* Bottom Input Panel */}
-            </div>
+                          {/* Tabs Content */}
+                          <div className="pt-16 pl-4 pr-4 overflow-y">
+                            {" "}
+                            {/* Adjust pt-20 to match the header's height */}
+                            <TabsContent value="parameters" className="mt-4">
+                              <ParameterForm
+                                item={selectedPrompt}
+                                getParameters={getParameters}
+                                inputs={inputs}
+                                handleInputChange={handleInputChange}
+                                onSubmit={handleCallMcpPrompt}
+                                isLoading={isLoading}
+                                isConnected={isConnected}
+                                itemType="Prompt" // Ensure itemType is correctly passed if needed by ParameterForm
+                              />
+                            </TabsContent>
+                            <TabsContent value="openai-panel" className="mt-4">
+                              <AIForm
+                                mcpClient={mcpClient}
+                                selectedPrompt={selectedPrompt}
+                                isConnected={isConnected}
+                                addMessage={addMessage}
+                              />
+                            </TabsContent>
+                          </div>
+                        </Tabs>
+                      </>
+                    )}
+                    {/* Placeholder when nothing is selected */}
+                    {!selectedTool && !selectedPrompt && (
+                      <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+                        <AlertCircle className="h-8 w-8 mb-2" />
+                        <p>
+                          Select a Tool or Prompt from the sidebar to view
+                          parameters and actions.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </ResizablePanel>
+
+                {/* Bottom Input Panel */}
+              </div>
+            </ResizablePanelGroup>
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
