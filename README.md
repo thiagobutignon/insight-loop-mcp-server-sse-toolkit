@@ -197,6 +197,11 @@ A `Makefile` is provided in the project root to simplify common Docker operation
 - [ ] MCP Server Roots
 - [ ] How to deploy? (Expand Docker section, add guides for cloud/serverless)
 
+## ✨ Contributors
+
+- [thiagobutignon](https://github.com/thiagobutignon)
+- [miller00315](https://github.com/miller00315) - Thank you, Miller, for your invaluable contributions. Your innovative ideas, passion for AI, expertise in mathematics, and deep understanding of game theory were crucial to the success of this project. We truly could not have completed it without you. 🚀👽🤖
+
 ## ❓ FAQ
 
 <details>
