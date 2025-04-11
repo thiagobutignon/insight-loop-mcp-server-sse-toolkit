@@ -1,3 +1,5 @@
+> **License**: Non-commercial use only under [BUSL-1.1](./LICENSE). Commercial use prohibited until April 10, 2040.
+
 # MCP Inspector Frontend
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).

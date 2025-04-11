@@ -1,3 +1,5 @@
+> **License**: Non-commercial use only under [BUSL-1.1](./LICENSE). Commercial use prohibited until April 10, 2040.
+
 # Scripts
 
 This directory contains scripts for automating various tasks related to the MCP Inspector.

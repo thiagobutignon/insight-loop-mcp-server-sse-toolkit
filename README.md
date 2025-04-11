@@ -1,3 +1,5 @@
+> **License**: Non-commercial use only under [BUSL-1.1](./LICENSE). Commercial use prohibited until April 10, 2040.
+
 # InsightLoop Dynamic MCP Server SSE, MCP Client Inspector & Development Tools
 
 ## 🚀 Overview
