@@ -519,10 +519,10 @@ export default function HomePage() {
           {/* Main Area (Log + Parameters + Input) */}
           <ResizablePanel defaultSize={75} minSize={30}>
             <ResizablePanelGroup direction="vertical">
-              <div className="flex flex-col h-full">
+              <div className="flex flex-col h-full overflow-y-auto">
                 {/* Log Area */}
-                <ResizablePanel defaultSize={50} minSize={30}>
-                  <div className="p-4 h-full">
+                <ResizablePanel defaultSize={50} minSize={30} className="overflow-y-auto">
+                  <div className="p-4 h-full overflow-y-auto">
                     <LogArea messages={messages} />
                   </div>
                 </ResizablePanel>

@@ -19,10 +19,10 @@ export function LogArea({ messages }: LogAreaProps) {
     <div className="flex-1 flex flex-col p-4">
       <Label htmlFor="messages" className="mb-2 font-semibold">
         Connection & Activity Log
-      </Label>
+      </Label>    
 
       {/* Fix: Define max height to enable scroll */}
-      <ScrollArea className="max-h-[600px] w-full rounded-md border p-2 bg-muted/30">
+      <ScrollArea className="w-full rounded-md border p-2 bg-muted/30">
         <pre className="text-sm whitespace-pre-wrap break-words px-2">
           {messages.join("\n")}
         </pre>
