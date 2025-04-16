@@ -1,22 +1,22 @@
-import express, { Request, Response } from "express";
+import express, { Request, Response, NextFunction } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { dynamicCorsMiddleware } from "./middlewares/dynamic-cors-middleware.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import { registerToolsFromDirectoryRecursive } from "./lib/register-tools-recursive.js";
-import chalk from "chalk"; // Import chalk
-import ora from "ora"; // Import ora
+import chalk from "chalk";
+import ora from "ora";
 import { registerPromptsFromDirectoryRecursive } from "./lib/register-prompts-recursive.js";
+import { v4 as uuid } from "uuid";
 
-// --- Helper Logs ---
 const log = console.log;
 const logError = console.error;
 const logWarn = console.warn;
-// ---
 
-const servers: { [uniqueId: string]: McpServer } = {};
-const transports: { [sessionId: string]: SSEServerTransport } = {};
+// Utilizando Map para gerenciamento seguro das instâncias
+const servers = new Map<string, McpServer>();
+const transports = new Map<string, SSEServerTransport>();
 
 async function createMcpServer(): Promise<McpServer> {
   const server = new McpServer({
@@ -26,7 +26,6 @@ async function createMcpServer(): Promise<McpServer> {
 
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-
   const toolsDir = path.resolve(__dirname, "tools");
   const promptsDir = path.resolve(__dirname, "prompts");
 
@@ -36,19 +35,14 @@ async function createMcpServer(): Promise<McpServer> {
   ).start();
   try {
     await registerToolsFromDirectoryRecursive(server, toolsDir);
-    // Assuming registerToolsFromDirectoryRecursive doesn't return the count easily
-    spinner.succeed(chalk.green(`⚙️  Tools registered successfully.`));
+    spinner.succeed(chalk.green("⚙️  Ferramentas registradas com sucesso."));
   } catch (error: any) {
-    spinner.fail(chalk.red(`Failed to register tools: ${error.message}`));
-    // Re-throw the error to prevent server creation if tools fail to load
+    spinner.fail(chalk.red(`Falha ao registrar ferramentas: ${error.message}`));
     throw error;
   }
 
-  const promptSpinner = ora(
-    `Registering prompts from ${chalk.cyan(promptsDir)}...`
-  ).start();
+  const promptSpinner = ora(`Registrando prompts a partir de ${chalk.cyan(promptsDir)}...`).start();
   try {
-    // Call the prompt registration function
     await registerPromptsFromDirectoryRecursive(server, promptsDir);
     // You could enhance registerPromptsFromDirectoryRecursive to return the count if needed
     promptSpinner.succeed(chalk.green(`💬 Prompts registered successfully.`));
@@ -69,16 +63,20 @@ async function createMcpServer(): Promise<McpServer> {
 
 const app = express();
 
-// Apply CORS middleware
+// Middlewares globais
 app.use(dynamicCorsMiddleware);
 
-// SSE Route
-app.get("/sse", async (req: Request, res: Response) => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
+app.use(express.urlencoded({ extended: true }));
 
-  const uniqueId = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+// Rota SSE para iniciar a conexão
+app.get("/sse", async (req: Request, res: Response) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+  });
+
+  const uniqueId = uuid();
   let mcpServer: McpServer;
 
   try {
@@ -86,89 +84,86 @@ app.get("/sse", async (req: Request, res: Response) => {
     // Spinner for server creation (includes tool loading)
     const serverSpinner = ora("Initializing new MCP session...").start();
     mcpServer = await createMcpServer();
-    servers[uniqueId] = mcpServer;
+    servers.set(uniqueId, mcpServer);
     serverSpinner.succeed(
       chalk.blue(`🖥️  MCP server instance created for session.`)
     );
 
-    // Create SSE transport
+
     const transport = new SSEServerTransport("/messages", res);
     const sessionId = transport.sessionId;
-    transports[sessionId] = transport;
+    transports.set(sessionId, transport);
 
     log(
       chalk.green(`🔌 New connection established: ${chalk.yellow(sessionId)}`)
     );
 
-    // Handle connection close
     res.on("close", () => {
-      log(chalk.yellow(`🔌 Connection closed: ${chalk.yellow(sessionId)}`));
-      delete transports[sessionId];
-      delete servers[uniqueId]; // Clean up the specific server instance
-      log(chalk.dim(`   Resources cleaned up for ${chalk.yellow(sessionId)}`));
+      log(chalk.yellow(`🔌 Conexão encerrada: ${chalk.yellow(sessionId)}`));
+      transports.delete(sessionId);
+      servers.delete(uniqueId);
+      log(chalk.dim(`   Recursos liberados para ${chalk.yellow(sessionId)}`));
     });
 
-    // Connect transport to the specific MCP server
     await mcpServer.connect(transport);
     log(chalk.dim(`🚌 Transport connected for ${chalk.yellow(sessionId)}`));
   } catch (error: any) {
-    logError(chalk.red("Error during SSE connection setup:"), error.message);
-    // Ensure resources are cleaned up if setup fails partially
-    if (servers[uniqueId]) delete servers[uniqueId];
-    // Close the response stream if an error occurs during setup
+    logError(chalk.red("Erro durante a configuração da conexão SSE:"), error.message);
+    if (servers.has(uniqueId)) servers.delete(uniqueId);
     if (!res.headersSent) {
       res.status(500).end("Server setup error");
     } else {
-      res.end(); // End the stream if headers were already sent
+      res.end();
     }
   }
 });
 
-// POST /messages Route
+// Rota para recebimento de mensagens via POST
 app.post("/messages", async (req: Request, res: Response) => {
-  // Headers are often set by the transport itself, but setting here is safe
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+  });
 
   const sessionId = req.query.sessionId as string;
-  const transport = transports[sessionId];
+  if (!sessionId) {
+    logWarn(chalk.yellow("⚠️ Sessão não informada na requisição."));
+    return res.status(400).send("Parâmetro sessionId ausente");
+  }
 
-  if (transport) {
-    try {
-      // The transport handles sending SSE messages back via the 'res' object
-      await transport.handlePostMessage(req, res);
-      // Log message receipt? Be careful, this could be very verbose.
-      // log(chalk.dim(`   Received POST for ${chalk.yellow(sessionId)}`));
-    } catch (error: any) {
-      logError(
-        chalk.red(`Error handling POST for ${chalk.yellow(sessionId)}:`),
-        error.message
-      );
-      if (!res.headersSent) {
-        res.status(500).send("Error processing message");
-      } else {
-        // Harder to signal error if stream already started, maybe send an SSE error event?
-        res.end();
-      }
+  const transport = transports.get(sessionId);
+  if (!transport) {
+    logWarn(chalk.yellow(`⚠️ Transporte não encontrado para sessionId: ${chalk.yellow(sessionId)}`));
+    return res.status(400).send("Transporte não encontrado para sessionId");
+  }
+
+  try {
+    await transport.handlePostMessage(req, res);
+  } catch (error: any) {
+    logError(chalk.red(`Erro ao processar mensagem para ${chalk.yellow(sessionId)}:`), error.message);
+    if (!res.headersSent) {
+      res.status(500).send("Erro no processamento da mensagem");
+    } else {
+      res.end();
     }
+  }
+});
+
+// Middleware global para tratamento de erros
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  logError(chalk.red("Erro não tratado:"), err);
+  if (!res.headersSent) {
+    res.status(500).send("Erro interno do servidor");
   } else {
-    logWarn(
-      chalk.yellow(
-        `⚠️ No transport found for sessionId: ${chalk.yellow(
-          sessionId
-        )} on POST /messages`
-      )
-    );
-    res.status(400).send("No transport found for sessionId");
+    res.end();
   }
 });
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  log(chalk.bold.green(`🚀 Server listening on port ${chalk.yellow(PORT)}`));
-  // Changed Portuguese to English for consistency
-  log(chalk.blue(`✅ Ready to accept multiple connections.`));
+  log(chalk.bold.green(`🚀 Servidor escutando na porta ${chalk.yellow(PORT)}`));
+  log(chalk.blue("✅ Pronto para aceitar múltiplas conexões."));
 });
 
 export default app;
