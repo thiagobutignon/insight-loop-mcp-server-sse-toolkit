@@ -463,7 +463,7 @@ export default function HomePage() {
       // they might trigger other actions or messages. The standard SDK might just return success/error.
       // Log the raw result for debugging.
       addMessage(
-        `📄 Prompt Result Structure: ${JSON.stringify(result, null, 2)}`
+        `📄 Prompt Result Structure:\n${JSON.stringify(result, null, 2)}`
       );
 
       if (result.isError) {
