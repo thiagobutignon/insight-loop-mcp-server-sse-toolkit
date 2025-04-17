@@ -1,26 +1,26 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { useState, useEffect, useRef } from "react";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { useEffect, useRef, useState } from "react";
 
-import { Tool, Prompt, Resource } from "@modelcontextprotocol/sdk/types.js";
-import { ToolResult } from "./model/tool-result";
-import { ParameterInfo } from "./model/parameter-info";
+import { AIForm } from "@/components/ai-form";
+import { Header, Section } from "@/components/header";
+import { LogArea } from "@/components/log-area";
+import { ParameterForm } from "@/components/parameter-form";
+import { Sidebar } from "@/components/sidebar/sidebar";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { Prompt, Resource, Tool } from "@modelcontextprotocol/sdk/types.js";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
 import { AlertCircle } from "lucide-react";
-import { Sidebar } from "@/components/sidebar/sidebar";
-import { ParameterForm } from "@/components/parameter-form";
-import { Header, Section } from "@/components/header";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@radix-ui/react-tabs";
 import { getParametersFromPrompt } from "./mcp/get-parameters-from-prompt";
 import { getParametersFromTool } from "./mcp/get-parameters-from-tool";
-import { AIForm } from "@/components/ai-form";
-import { LogArea } from "@/components/log-area";
+import { ParameterInfo } from "./model/parameter-info";
+import { ToolResult } from "./model/tool-result";
 
 const SERVER_URL = process.env.NEXT_PUBLIC_MCP_SERVER_URL;
 
@@ -106,6 +106,22 @@ export default function HomePage() {
           addMessage("⚠️ Failed to list tools.");
         }
 
+        // List available tools after connecting
+        try {
+          const resourcesResult = await clientInstance.listResources();
+          setAvailableResources(resourcesResult.resources);
+          addMessage(
+            `🛒 Found resources: ${
+              resourcesResult.resources.length > 0
+                ? resourcesResult.resources.map((resource) => resource.name).join(", ")
+                : "None"
+            }`
+          );
+        } catch (error) {
+          console.error("Error listing resources:", error);
+          addMessage("⚠️ Failed to list resources.");
+        }
+
         // List available prompts
         try {
           const promptsResult = await clientInstance.listPrompts();
@@ -149,7 +165,7 @@ export default function HomePage() {
       setMcpClient(null);
       setTransport(null);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // --- Existing Functions (Keep addMessage, scroll useEffect, resetSelections, handleSelectTool, handleSelectPrompt, handleInputChange, parseParamValue, handleCallMcpTool, handleCallMcpPrompt) ---

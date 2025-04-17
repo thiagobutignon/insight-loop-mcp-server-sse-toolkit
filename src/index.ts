@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import { v4 as uuid } from "uuid";
 import { McpServerDecorator } from "./decorators/mcp-server-decorator.js";
 import { registerPromptsFromDirectoryRecursive } from "./lib/register-prompts-recursive.js";
+import { registerDynamicResources } from "./lib/register-resources-recursive.js";
 import { registerToolsFromDirectoryRecursive } from "./lib/register-tools-recursive.js";
 import { dynamicCorsMiddleware } from "./middlewares/dynamic-cors-middleware.js";
 
@@ -27,19 +28,20 @@ async function createMcpServer(): Promise<McpServerDecorator> {
   const __dirname = path.dirname(__filename);
   const toolsDir = path.resolve(__dirname, "tools");
   const promptsDir = path.resolve(__dirname, "prompts");
+  const resourcesDir = path.resolve(__dirname, "resources");
 
   const spinner = ora(
     `Registering tools from ${chalk.cyan(toolsDir)}...`
   ).start();
   try {
     await registerToolsFromDirectoryRecursive(server, toolsDir);
-    spinner.succeed(chalk.green("⚙️  Ferramentas registradas com sucesso."));
+    spinner.succeed(chalk.green("⚙️  Tools register successful"));
   } catch (error: any) {
-    spinner.fail(chalk.red(`Falha ao registrar ferramentas: ${error.message}`));
+    spinner.fail(chalk.red(`Failed to register the tools: ${error.message}`));
     throw error;
   }
 
-  const promptSpinner = ora(`Registrando prompts a partir de ${chalk.cyan(promptsDir)}...`).start();
+  const promptSpinner = ora(`Registering prompts: ${chalk.cyan(promptsDir)}...`).start();
   try {
     await registerPromptsFromDirectoryRecursive(server, promptsDir);
     promptSpinner.succeed(chalk.green(`💬 Prompts registered successfully.`));
@@ -50,6 +52,21 @@ async function createMcpServer(): Promise<McpServerDecorator> {
     logError(error); 
     throw error;
   }
+
+  const resourcesSpinner = ora(`Registering resources...`).start();
+  try {
+    await registerDynamicResources(server, resourcesDir);
+    
+    resourcesSpinner.succeed(chalk.green(`📦 Resources registered successfully.`));
+  } catch (error: any) {
+    resourcesSpinner.fail(
+      chalk.red(`Failed to register resources: ${error.message}`)
+    );
+    logError(error);
+    throw error;
+  }
+  
+  
 
   return server;
 }
@@ -149,8 +166,8 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  log(chalk.bold.green(`🚀 Servidor escutando na porta ${chalk.yellow(PORT)}`));
-  log(chalk.blue("✅ Pronto para aceitar múltiplas conexões."));
+  log(chalk.bold.green(`🚀 Server up and running on port ${chalk.yellow(PORT)}`));
+  log(chalk.blue("✅ Ready to accept multiple connections"));
 });
 
 export default app;
