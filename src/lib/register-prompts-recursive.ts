@@ -1,12 +1,12 @@
 import {
-  McpServer,
-  PromptCallback,
+  PromptCallback
 } from "@modelcontextprotocol/sdk/server/mcp.js";
-import "dotenv/config";
-import { pathToFileURL } from "url";
-import { globby } from "globby";
 import chalk from "chalk"; // Import chalk
+import "dotenv/config";
+import { globby } from "globby";
+import { pathToFileURL } from "url";
 import { z, ZodTypeAny } from "zod"; // Import Zod
+import { McpServerDecorator } from "../decorators/mcp-server-decorator.js";
 
 // --- Helper Logs ---
 const log = console.log;
@@ -73,7 +73,7 @@ function createArgsSchema(argsDef: ArgumentDefinition[]): PromptArgsRawShape {
  * and registers them with the provided McpServer instance.
  */
 export async function registerPromptsFromDirectoryRecursive(
-  server: McpServer,
+  server: McpServerDecorator,
   baseDirectoryPath: string
 ): Promise<void> {
   const isDev = process.env.NODE_ENV !== "production";

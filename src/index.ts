@@ -1,25 +1,24 @@
-import express, { Request, Response, NextFunction } from "express";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { dynamicCorsMiddleware } from "./middlewares/dynamic-cors-middleware.js";
+import chalk from "chalk";
+import express, { NextFunction, Request, Response } from "express";
+import ora from "ora";
 import path from "path";
 import { fileURLToPath } from "url";
-import { registerToolsFromDirectoryRecursive } from "./lib/register-tools-recursive.js";
-import chalk from "chalk";
-import ora from "ora";
-import { registerPromptsFromDirectoryRecursive } from "./lib/register-prompts-recursive.js";
 import { v4 as uuid } from "uuid";
+import { McpServerDecorator } from "./decorators/mcp-server-decorator.js";
+import { registerPromptsFromDirectoryRecursive } from "./lib/register-prompts-recursive.js";
+import { registerToolsFromDirectoryRecursive } from "./lib/register-tools-recursive.js";
+import { dynamicCorsMiddleware } from "./middlewares/dynamic-cors-middleware.js";
 
 const log = console.log;
 const logError = console.error;
 const logWarn = console.warn;
 
-// Utilizando Map para gerenciamento seguro das instâncias
-const servers = new Map<string, McpServer>();
+const servers = new Map<string, McpServerDecorator>();
 const transports = new Map<string, SSEServerTransport>();
 
-async function createMcpServer(): Promise<McpServer> {
-  const server = new McpServer({
+async function createMcpServer(): Promise<McpServerDecorator> {
+  const server = McpServerDecorator.create({
     name: "insight-loop-mcp-server-sse",
     version: "1.0.0",
   });
@@ -29,7 +28,6 @@ async function createMcpServer(): Promise<McpServer> {
   const toolsDir = path.resolve(__dirname, "tools");
   const promptsDir = path.resolve(__dirname, "prompts");
 
-  // Use ora spinner for tool registration
   const spinner = ora(
     `Registering tools from ${chalk.cyan(toolsDir)}...`
   ).start();
@@ -44,17 +42,12 @@ async function createMcpServer(): Promise<McpServer> {
   const promptSpinner = ora(`Registrando prompts a partir de ${chalk.cyan(promptsDir)}...`).start();
   try {
     await registerPromptsFromDirectoryRecursive(server, promptsDir);
-    // You could enhance registerPromptsFromDirectoryRecursive to return the count if needed
     promptSpinner.succeed(chalk.green(`💬 Prompts registered successfully.`));
   } catch (error: any) {
     promptSpinner.fail(
       chalk.red(`Failed to register prompts: ${error.message}`)
     );
-    logError(error); // Log the full error for debugging
-    // Decide if prompt loading failure is critical. If so, re-throw:
-    // throw error;
-    // If not critical, just log the warning/error and continue.
-    // For consistency with tools, let's make it critical for now:
+    logError(error); 
     throw error;
   }
 
@@ -63,12 +56,10 @@ async function createMcpServer(): Promise<McpServer> {
 
 const app = express();
 
-// Middlewares globais
 app.use(dynamicCorsMiddleware);
 
 app.use(express.urlencoded({ extended: true }));
 
-// Rota SSE para iniciar a conexão
 app.get("/sse", async (req: Request, res: Response) => {
   res.set({
     "Content-Type": "text/event-stream",
@@ -77,11 +68,9 @@ app.get("/sse", async (req: Request, res: Response) => {
   });
 
   const uniqueId = uuid();
-  let mcpServer: McpServer;
+  let mcpServer: McpServerDecorator;
 
   try {
-    // Create MCP server instance for this connection
-    // Spinner for server creation (includes tool loading)
     const serverSpinner = ora("Initializing new MCP session...").start();
     mcpServer = await createMcpServer();
     servers.set(uniqueId, mcpServer);
@@ -118,7 +107,6 @@ app.get("/sse", async (req: Request, res: Response) => {
   }
 });
 
-// Rota para recebimento de mensagens via POST
 app.post("/messages", async (req: Request, res: Response) => {
   res.set({
     "Content-Type": "text/event-stream",
@@ -150,7 +138,6 @@ app.post("/messages", async (req: Request, res: Response) => {
   }
 });
 
-// Middleware global para tratamento de erros
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   logError(chalk.red("Erro não tratado:"), err);
   if (!res.headersSent) {

@@ -29,7 +29,7 @@ export type AlgorithmCallback<Args extends undefined | ZodRawShape = undefined> 
     : (extra: RequestHandlerExtra) => any | Promise<any>;
 
 /**
- * McpServerWithAlgorithms decorator following the Decorator pattern
+ * McpServerDecorator decorator following the Decorator pattern
  * This adheres to:
  * - Single Responsibility Principle: Adds only algorithm functionality
  * - Open/Closed Principle: Extends McpServer without modifying it
@@ -37,7 +37,7 @@ export type AlgorithmCallback<Args extends undefined | ZodRawShape = undefined> 
  * - Interface Segregation Principle: Provides only necessary interfaces
  * - Dependency Inversion Principle: Depends on abstractions not implementations
  */
-export class McpServerWithAlgorithms {
+export class McpServerDecorator {
   private readonly _mcpServer: McpServer;
   private readonly _registeredAlgorithms: Map<string, Algorithm> = new Map();
 
@@ -140,13 +140,12 @@ export class McpServerWithAlgorithms {
    */
   async executeAlgorithm(name: string, args?: any, extra?: RequestHandlerExtra): Promise<any> {
     const algorithm = this._registeredAlgorithms.get(name);
-    
     if (!algorithm) {
       throw new Error(`Algorithm '${name}' not found`);
     }
-    
-    return algorithm.execute(args, extra || {});
+    return algorithm.execute(extra || {}, args);
   }
+
 
   private _registerAlgorithm<Args extends ZodRawShape | undefined>(
     name: string,
@@ -181,8 +180,8 @@ export class McpServerWithAlgorithms {
   }
 
   // Factory method to create a decorated instance from implementation
-  static create(serverInfo: Implementation, options?: ServerOptions): McpServerWithAlgorithms {
+  static create(serverInfo: Implementation, options?: ServerOptions): McpServerDecorator {
     const mcpServer = new McpServer(serverInfo, options);
-    return new McpServerWithAlgorithms(mcpServer);
+    return new McpServerDecorator(mcpServer);
   }
 }

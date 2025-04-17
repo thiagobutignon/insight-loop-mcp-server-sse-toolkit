@@ -1,18 +1,16 @@
-import path from "path";
+import chalk from "chalk";
 import * as dotenv from "dotenv";
+import { promises as fs } from "fs";
+import ora from "ora";
+import path from "path";
 import { initGeminiClient } from "../../llm/gemini-open-ai.ts";
 import { IMPROVE_TOOL_DESCRIPTION_PROMPT } from "../../prompts/automation/improve-tool-description-prompt.ts";
-import { promises as fs } from "fs";
-import chalk from "chalk"; // Import chalk
-import ora from "ora"; // Import ora
 
 dotenv.config();
 
-// --- Helper Logs ---
 const log = console.log;
 const logError = console.error;
 const logWarn = console.warn;
-// ---
 
 export async function improveToolDescriptions(
   toolFiles: string[]
@@ -45,10 +43,9 @@ export async function improveToolDescriptions(
     )
   );
 
-  // Overall progress spinner
   const overallSpinner = ora({
     text: `Starting improvement process...`,
-    spinner: "dots", // Or choose another spinner style
+    spinner: "dots",
     color: "blue",
   }).start();
 
@@ -57,7 +54,6 @@ export async function improveToolDescriptions(
   let skippedCount = 0;
   let errorCount = 0;
 
-  // Process files with rate limiting
   for (let i = 0; i < toolFiles.length; i++) {
     const filePath = toolFiles[i];
     const baseName = path.basename(filePath);
@@ -71,17 +67,16 @@ export async function improveToolDescriptions(
     try {
       fileContent = await fs.readFile(filePath, "utf-8");
     } catch (readError: any) {
-      overallSpinner.stop(); // Stop spinner before logging error
+      overallSpinner.stop();
       logError(
         chalk.red(`\n${progressPrefix}: Error reading file:`),
         readError.message
       );
-      overallSpinner.start(); // Restart spinner for next iteration
+      overallSpinner.start(); 
       errorCount++;
-      continue; // Skip to next file
+      continue; 
     }
 
-    // Extract the current description and parameter descriptions
     overallSpinner.text = `${progressPrefix}: Parsing descriptions...`;
     const descriptionMatch = fileContent.match(/description:\s*"([^"]+)"/);
     const paramMatches = Array.from(
@@ -89,19 +84,17 @@ export async function improveToolDescriptions(
     );
 
     if (!descriptionMatch) {
-      // Use ora's persist to keep the message without disrupting the spinner
       overallSpinner.stopAndPersist({
         symbol: chalk.yellow("!"),
         text: `${progressPrefix}: ${chalk.yellow(
           "No description found. Skipping."
         )}`,
       });
-      overallSpinner.start(); // Restart spinner
+      overallSpinner.start(); 
       skippedCount++;
       continue;
     }
 
-    // Prepare the content to send to the LLM
     let promptContent = `Tool file: ${baseName}\n\n`;
     promptContent += `Current description: ${descriptionMatch[0]}\n\n`;
     if (paramMatches.length > 0) {
@@ -112,7 +105,6 @@ export async function improveToolDescriptions(
     let llmSpinner;
 
     try {
-      // Call the LLM to improve descriptions
       llmSpinner = ora(
         `${progressPrefix}: Calling LLM for improvements...`
       ).start();
@@ -130,24 +122,22 @@ export async function improveToolDescriptions(
       if (!improvedDescriptions) {
         llmSpinner.warn(chalk.yellow(`No improvements received from LLM.`));
         skippedCount++;
-        continue; // Skip to next file
+        continue;
       }
 
       llmSpinner.text = `${progressPrefix}: Processing LLM response...`;
 
-      // Process the find and replace patterns
       let updatedContent = fileContent;
       const findReplacePattern =
         /<<<FIND>>>(.+?)<<<\/FIND>>>\s*<<<REPLACE>>>(.+?)<<<\/REPLACE>>>/gs;
       let match;
       let madeChanges = false;
-      let replacementsLog = ""; // Accumulate log messages
+      let replacementsLog = "";
 
       while ((match = findReplacePattern.exec(improvedDescriptions)) !== null) {
-        const findText = match[1].trim(); // Trim whitespace
-        const replaceText = match[2].trim(); // Trim whitespace
+        const findText = match[1].trim();
+        const replaceText = match[2].trim();
 
-        // Log the attempt (can be made less verbose if needed)
         replacementsLog += `\n  ${chalk.dim(
           "Attempting replace:"
         )} "${findText}" -> "${replaceText}"`;
@@ -157,7 +147,6 @@ export async function improveToolDescriptions(
           replacementsLog += ` ${chalk.green("✓")}`;
           madeChanges = true;
         } else {
-          // Try cleaning potential trailing commas/quotes before giving up
           const cleanFindText = findText.replace(/["',]+$/, "");
           if (updatedContent.includes(cleanFindText)) {
             updatedContent = updatedContent.replace(cleanFindText, replaceText);
@@ -165,8 +154,6 @@ export async function improveToolDescriptions(
             madeChanges = true;
           } else {
             replacementsLog += ` ${chalk.red("✗ (not found)")}`;
-            // Optionally log more details for debugging failed replacements
-            // logWarn(`\n    ${chalk.yellow('Warning:')} Could not find exact text for replacement in ${baseName}: "${findText}"`);
           }
         }
       }
@@ -175,9 +162,7 @@ export async function improveToolDescriptions(
         llmSpinner.text = `${progressPrefix}: Writing updated file...`;
         await fs.writeFile(filePath, updatedContent, "utf-8");
         llmSpinner.succeed(chalk.green(`Updated successfully.`));
-        // Persist the replacement log if desired
-        // overallSpinner.stopAndPersist({ symbol: ' ', text: replacementsLog });
-        // overallSpinner.start();
+
         successCount++;
       } else {
         llmSpinner.info(chalk.blue(`No changes applied.`));
@@ -188,20 +173,17 @@ export async function improveToolDescriptions(
       if (llmSpinner) {
         llmSpinner.fail(chalk.red(`Error during processing: ${error.message}`));
       } else {
-        // Error occurred before LLM spinner started (e.g., during setup)
-        overallSpinner.stop(); // Stop overall spinner to show error clearly
+        overallSpinner.stop();
         logError(
           chalk.red(`\n${progressPrefix}: Error preparing LLM call:`),
           error.message
         );
-        overallSpinner.start(); // Restart for next file
+        overallSpinner.start();
       }
-      // Optionally log full error stack: logError(error);
     }
   }
 
-  // Final summary
-  overallSpinner.stop(); // Stop the main spinner before final summary
+  overallSpinner.stop();
   log(chalk.bold("\n----- Improvement Process Complete -----"));
   if (successCount > 0)
     log(chalk.green(`✅ Successfully updated: ${successCount}`));
