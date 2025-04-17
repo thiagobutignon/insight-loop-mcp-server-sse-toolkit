@@ -64,24 +64,14 @@ export async function registerPromptsFromDirectoryRecursive(
     )
   );
 
-  console.log(`[FUNC_LOG] Resolved pattern: ${pattern}`);
-
-
   try {
-    console.log("[FUNC_LOG] Preparing to call globby...");
-
     const filePaths = await globby(pattern, {
       absolute: true,
       ignore: ["**/*.d.ts", "**/*.map"],
     });
 
-    console.log(`[FUNC_LOG] globby returned ${filePaths?.length ?? 'undefined'} paths:`, filePaths); // Log result
-
-
     if (filePaths.length === 0) {
       logWarn(chalk.yellow("⚠️ No prompt files found matching the pattern."));
-      console.log("[FUNC_LOG] Exiting: No files found.");
-
       return;
     }
 
@@ -91,23 +81,16 @@ export async function registerPromptsFromDirectoryRecursive(
       )
     );
 
-    console.log(`[FUNC_LOG] Found ${filePaths.length} files. Looping...`);
-
     for (const absoluteFilePath of filePaths) {
-      console.log(`[FUNC_LOG] Processing file: ${absoluteFilePath}`);
-
       const fileUrl = pathToFileURL(absoluteFilePath).href;
       log(
         chalk.dim(
           `📄 Attempting to import prompt from: ${chalk.cyan(absoluteFilePath)}`
         )
       );
-      console.log(`[FUNC_LOG] Attempting dynamic import for: ${fileUrl}`);
 
       try {
         const module = await import(fileUrl);
-        console.log("[FUNC_LOG] Dynamic import successful. Module:", module);
-
         if (
           !module.default ||
           typeof module.default !== "object" ||
@@ -121,13 +104,8 @@ export async function registerPromptsFromDirectoryRecursive(
               )}: Default export does not match minimum PromptDefinition structure ({ name: string, content: string }).`
             )
           );
-
-          console.log(`[FUNC_LOG] Skipping ${absoluteFilePath}: Invalid structure.`);
-
           continue;
         }
-
-        console.log("[FUNC_LOG] Module structure valid.");
 
         const promptDef = module.default as PromptDefinition;
         const promptName = promptDef.name;
@@ -137,16 +115,12 @@ export async function registerPromptsFromDirectoryRecursive(
           Array.isArray(promptDef.arguments) &&
           promptDef.arguments.length > 0
         ) {
-          console.log(`[FUNC_LOG] Prompt ${promptName} has arguments. Creating schema...`);
-
           const argsSchema = createArgsSchema(promptDef.arguments);
 
           const callback: PromptCallback<PromptArgsRawShape> = (
             args,
             _extra
           ) => {
-            console.log(`[FUNC_LOG] Callback executing for ${promptName} (with args):`, args);
-
             const processedContent = replacePlaceholders(
               promptDef.content,
               args
@@ -164,7 +138,6 @@ export async function registerPromptsFromDirectoryRecursive(
               ],
             };
           };
-          console.log(`[FUNC_LOG] Calling server.prompt for ${promptName} (with args)`);
 
           server.prompt(promptName, promptDescription, argsSchema, callback);
           log(
