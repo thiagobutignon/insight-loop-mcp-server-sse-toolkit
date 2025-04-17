@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 
-import { Tool, Prompt } from "@modelcontextprotocol/sdk/types.js";
+import { Tool, Prompt, Resource } from "@modelcontextprotocol/sdk/types.js";
 import { ToolResult } from "./model/tool-result";
 import { ParameterInfo } from "./model/parameter-info";
 import {
@@ -13,9 +13,9 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { AlertCircle } from "lucide-react";
-import { Sidebar } from "@/components/sidebar";
+import { Sidebar } from "@/components/sidebar/sidebar";
 import { ParameterForm } from "@/components/parameter-form";
-import { Header } from "@/components/header";
+import { Header, Section } from "@/components/header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@radix-ui/react-tabs";
 import { getParametersFromPrompt } from "./mcp/get-parameters-from-prompt";
 import { getParametersFromTool } from "./mcp/get-parameters-from-tool";
@@ -23,8 +23,6 @@ import { AIForm } from "@/components/ai-form";
 import { LogArea } from "@/components/log-area";
 
 const SERVER_URL = process.env.NEXT_PUBLIC_MCP_SERVER_URL;
-
-type ActiveSection = "Tools" | "Prompts";
 
 export default function HomePage() {
   // --- Existing State (Keep as is) ---
@@ -34,14 +32,18 @@ export default function HomePage() {
   const [_, setTransport] = useState<SSEClientTransport | null>(null);
   const [availableTools, setAvailableTools] = useState<Tool[]>([]);
   const [availablePrompts, setAvailablePrompts] = useState<Prompt[]>([]);
+  const [availableResources, setAvailableResources] = useState<Resource[]>([]);
   const [messages, setMessages] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
+  const [selectedResources, setSelectedResources] = useState<Resource | null>(null);
+
   const [inputs, setInputs] = useState<Record<string, any>>({});
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  const [activeSection, setActiveSection] = useState<ActiveSection>("Tools");
+  const [activeSection, setActiveSection] = useState<Section>("Tools");
 
   useEffect(() => {
     let clientInstance: Client | null = null;
@@ -191,6 +193,14 @@ export default function HomePage() {
     setSelectedPrompt(prompt);
     addMessage(`Selected prompt: ${prompt.name}`);
   };
+
+  const handleSelectResources = (resource: Resource) => {
+    console.log("Selected Resource:", resource.name);
+    resetSelections();
+    setSelectedResources(resource);
+    addMessage(`Selected resource: ${resource.name}`);
+  };
+
 
   /**
    * Gets parameter information from either a Tool or a Prompt.
@@ -496,6 +506,8 @@ export default function HomePage() {
           activeSection={activeSection}
           setActiveSection={setActiveSection}
           availablePromptsLength={availablePrompts.length}
+          availableToolsLength={availableTools.length}
+          availableResourcesLength={availableResources.length}
           resetSelections={resetSelections}
         />
         {/* Main Content Area (Sidebar + Log/Input) */}
@@ -508,9 +520,14 @@ export default function HomePage() {
               selectedTool={selectedTool}
               isConnected={isConnected}
               onSelectTool={handleSelectTool}
+              
               availablePrompts={availablePrompts}
               selectedPrompt={selectedPrompt}
               onSelectPrompt={handleSelectPrompt}
+              
+              availableResources={availableResources}
+              selectedResources={selectedResources}
+              onSelectResources={handleSelectResources}
             />
           </ResizablePanel>
 

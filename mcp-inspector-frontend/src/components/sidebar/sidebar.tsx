@@ -1,32 +1,47 @@
 "use client"; // Keep client-side interactivity
 
-import { Tool, Prompt } from "@modelcontextprotocol/sdk/types.js";
+import { Tool, Prompt, Resource } from "@modelcontextprotocol/sdk/types.js";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ToolsSidebar } from "@/components/tools-sidebar";
-import { PromptsSidebar } from "@/components/prompts-sidebar";
+import { ToolsSidebar } from "@/components/sidebar/tools-sidebar";
+import { PromptsSidebar } from "@/components/sidebar/prompts-sidebar";
+import { ResourcesSidebar } from "./resources-sidebar";
 
-type ActiveSection = "Tools" | "Prompts";
+type ActiveSection = "Tools" | "Prompts" | "Resources";
 
 interface SidebarProps {
   activeSection: ActiveSection;
   availableTools: Tool[];
   selectedTool: Tool | null;
-  isConnected: boolean;
   onSelectTool: (tool: Tool) => void;
+  
+  
   availablePrompts: Prompt[];
   selectedPrompt: Prompt | null;
   onSelectPrompt: (prompt: Prompt) => void;
+
+  availableResources: Resource[];
+  selectedResources: Resource | null;
+  onSelectResources: (resource: Resource) => void;
+  
+  isConnected: boolean;
 }
 
 export function Sidebar({
+  isConnected,
   activeSection,
+
   availableTools,
   selectedTool,
-  isConnected,
   onSelectTool,
+
   availablePrompts,
   selectedPrompt,
   onSelectPrompt,
+
+  availableResources,
+  selectedResources,
+  onSelectResources,
+
 }: SidebarProps) {
   return (
     <div className="flex flex-col h-full border-r p-4">
@@ -51,6 +66,17 @@ export function Sidebar({
               onSelectPrompt={onSelectPrompt}
             />
           )}
+
+          {activeSection === "Resources" && (
+            <ResourcesSidebar
+              availableResources={availableResources}
+              selectedResources={selectedResources}
+              isConnected={isConnected}
+              onSelectResources={onSelectResources}
+            />
+          )}
+
+          
         </div>
       </ScrollArea>
     </div>
