@@ -1,20 +1,17 @@
 import {
   PromptCallback
 } from "@modelcontextprotocol/sdk/server/mcp.js";
-import chalk from "chalk"; // Import chalk
+import chalk from "chalk";
 import "dotenv/config";
 import { globby } from "globby";
 import { pathToFileURL } from "url";
-import { z, ZodTypeAny } from "zod"; // Import Zod
+import { z, ZodTypeAny } from "zod";
 import { McpServerDecorator } from "../decorators/mcp-server-decorator.js";
 
-// --- Helper Logs ---
 const log = console.log;
 const logWarn = console.warn;
 const logError = console.error;
-// ---
 
-// --- Types (as defined above) ---
 interface ArgumentDefinition {
   name: string;
   description: string;
@@ -28,37 +25,21 @@ interface PromptDefinition {
   arguments?: ArgumentDefinition[];
 }
 type PromptArgsRawShape = { [k: string]: ZodTypeAny };
-// ---
 
-/**
- * Helper function to replace placeholders like {{variable}} in a string.
- * @param template The string containing placeholders.
- * @param values An object with key-value pairs for replacement.
- * @returns The string with placeholders replaced.
- */
 function replacePlaceholders(
   template: string,
   values: Record<string, any>
 ): string {
   return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-    return values.hasOwnProperty(key) ? String(values[key]) : match; // Convert value to string
+    return values.hasOwnProperty(key) ? String(values[key]) : match;
   });
 }
 
-/**
- * Creates a Zod schema object from an array of ArgumentDefinitions.
- * Currently assumes all arguments are strings.
- * @param argsDef Array of argument definitions.
- * @returns A Zod schema object compatible with McpServer.
- */
 function createArgsSchema(argsDef: ArgumentDefinition[]): PromptArgsRawShape {
   const schema: PromptArgsRawShape = {};
   for (const arg of argsDef) {
-    // --- Basic Schema (Assuming String for now) ---
-    // You could extend this based on an optional `arg.type` property
     let argSchema: ZodTypeAny = z.string().describe(arg.description);
 
-    // --- Handle Optionality ---
     if (!arg.required) {
       argSchema = argSchema.optional();
     }
@@ -68,10 +49,6 @@ function createArgsSchema(argsDef: ArgumentDefinition[]): PromptArgsRawShape {
   return schema;
 }
 
-/**
- * Recursively scans a directory for prompt definition files (.ts or .js)
- * and registers them with the provided McpServer instance.
- */
 export async function registerPromptsFromDirectoryRecursive(
   server: McpServerDecorator,
   baseDirectoryPath: string
@@ -87,14 +64,24 @@ export async function registerPromptsFromDirectoryRecursive(
     )
   );
 
+  console.log(`[FUNC_LOG] Resolved pattern: ${pattern}`);
+
+
   try {
+    console.log("[FUNC_LOG] Preparing to call globby...");
+
     const filePaths = await globby(pattern, {
       absolute: true,
       ignore: ["**/*.d.ts", "**/*.map"],
     });
 
+    console.log(`[FUNC_LOG] globby returned ${filePaths?.length ?? 'undefined'} paths:`, filePaths); // Log result
+
+
     if (filePaths.length === 0) {
       logWarn(chalk.yellow("⚠️ No prompt files found matching the pattern."));
+      console.log("[FUNC_LOG] Exiting: No files found.");
+
       return;
     }
 
@@ -104,18 +91,23 @@ export async function registerPromptsFromDirectoryRecursive(
       )
     );
 
+    console.log(`[FUNC_LOG] Found ${filePaths.length} files. Looping...`);
+
     for (const absoluteFilePath of filePaths) {
+      console.log(`[FUNC_LOG] Processing file: ${absoluteFilePath}`);
+
       const fileUrl = pathToFileURL(absoluteFilePath).href;
       log(
         chalk.dim(
           `📄 Attempting to import prompt from: ${chalk.cyan(absoluteFilePath)}`
         )
       );
+      console.log(`[FUNC_LOG] Attempting dynamic import for: ${fileUrl}`);
 
       try {
         const module = await import(fileUrl);
+        console.log("[FUNC_LOG] Dynamic import successful. Module:", module);
 
-        // Basic structure check
         if (
           !module.default ||
           typeof module.default !== "object" ||
@@ -129,27 +121,32 @@ export async function registerPromptsFromDirectoryRecursive(
               )}: Default export does not match minimum PromptDefinition structure ({ name: string, content: string }).`
             )
           );
-          continue; // Skip this file
+
+          console.log(`[FUNC_LOG] Skipping ${absoluteFilePath}: Invalid structure.`);
+
+          continue;
         }
+
+        console.log("[FUNC_LOG] Module structure valid.");
 
         const promptDef = module.default as PromptDefinition;
         const promptName = promptDef.name;
-        const promptDescription = promptDef.description || ""; // Use description if provided
+        const promptDescription = promptDef.description || "";
 
-        // --- Check for Arguments ---
         if (
           Array.isArray(promptDef.arguments) &&
           promptDef.arguments.length > 0
         ) {
-          // --- Prompt WITH Arguments ---
+          console.log(`[FUNC_LOG] Prompt ${promptName} has arguments. Creating schema...`);
+
           const argsSchema = createArgsSchema(promptDef.arguments);
 
-          // Define the callback that receives validated arguments
           const callback: PromptCallback<PromptArgsRawShape> = (
             args,
             _extra
           ) => {
-            // Replace placeholders in the content with actual argument values
+            console.log(`[FUNC_LOG] Callback executing for ${promptName} (with args):`, args);
+
             const processedContent = replacePlaceholders(
               promptDef.content,
               args
@@ -158,18 +155,17 @@ export async function registerPromptsFromDirectoryRecursive(
             return {
               messages: [
                 {
-                  role: "user", // Or system, depending on your structure
+                  role: "user",
                   content: {
                     type: "text",
                     text: processedContent,
                   },
                 },
               ],
-              // Add any other required properties for the MCP protocol here
             };
           };
+          console.log(`[FUNC_LOG] Calling server.prompt for ${promptName} (with args)`);
 
-          // Register using the overload with description and argsSchema
           server.prompt(promptName, promptDescription, argsSchema, callback);
           log(
             chalk.green(
@@ -179,24 +175,20 @@ export async function registerPromptsFromDirectoryRecursive(
             )
           );
         } else {
-          // --- Prompt WITHOUT Arguments ---
           const callback: PromptCallback = (_extra) => {
-            // No arguments, just return the static content
             return {
               messages: [
                 {
-                  role: "user", // Or system
+                  role: "user",
                   content: {
                     type: "text",
                     text: promptDef.content,
                   },
                 },
               ],
-              // Add any other required properties for the MCP protocol here
             };
           };
 
-          // Register using the overload with description (if provided)
           if (promptDescription) {
             server.prompt(promptName, promptDescription, callback);
           } else {
