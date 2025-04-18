@@ -2,14 +2,16 @@
 
 // --- Implementação Concreta ---
 
+import fs from 'fs';
+import path from 'path';
+import { callLLM } from './call-llm.js';
 import { DadosGenealogia, GenealogiaEdge, GenealogiaNode, NivelEsperanca, Pai, StatusFilho } from "./nivel-de-esperanca.js";
-
 /**
 * Implementação concreta da interface Pai.
 * Gerencia um ciclo de vida evolutivo para uma população de Niveis de Esperança.
 */
 export class PaiConcreto implements Pai {
-  listaDeEsperanca: NivelEsperanca[];
+  listaDeEsperanca: NivelEsperanca[] = [];
   readonly threshold: number;
   readonly pontoOtimo: number;
 
@@ -38,7 +40,8 @@ export class PaiConcreto implements Pai {
       pontoOtimo: number,
       tamanhoPopulacaoInicial: number = 10, // Default population size
       maxGeracoes: number = 50, // Default max generations
-      populacaoInicial?: NivelEsperanca[]
+      private readonly comando: string,
+      populacaoInicial?: NivelEsperanca[],
   ) {
       if (threshold < 0 || threshold > pontoOtimo) {
           throw new Error("Threshold deve estar entre 0 e pontoOtimo.");
@@ -70,10 +73,18 @@ export class PaiConcreto implements Pai {
               this.adicionarNodeAoHistorico(filho);
           });
       } else {
-          this.listaDeEsperanca = this.gerarFilhosIniciais(tamanhoPopulacaoInicial);
-          this.numeroGeracaoAtual = 1; // Geração 1 é a inicial
+        this.listaDeEsperanca = []
+        this.numeroGeracaoAtual = 1; // Geração 1 é a inicial
           // Histórico já adicionado por gerarFilhosIniciais
       }
+  }
+
+  async init() {
+    if (this.listaDeEsperanca.length === 0) {
+      const result = await this.gerarFilhosIniciais(this.tamanhoPopulacaoAlvo);
+      this.listaDeEsperanca = result;
+      this.numeroGeracaoAtual = 1;
+    }
   }
 
   /** Gera um ID numérico simples e único dentro desta instância. */
@@ -247,7 +258,7 @@ export class PaiConcreto implements Pai {
       if (this.precisaGerarFilhoInicial()) {
           console.warn("Lista de esperança está vazia inesperadamente. Tentando gerar filhos iniciais.");
           // A lógica do construtor já garante isso, mas por robustez:
-          this.listaDeEsperanca = this.gerarFilhosIniciais(this.tamanhoPopulacaoAlvo);
+        //   this.listaDeEsperanca = this.gerarFilhosIniciais(this.tamanhoPopulacaoAlvo);
           this.numeroGeracaoAtual = 1; // Reseta geração se estava vazio
           if (this.listaDeEsperanca.length === 0) {
               console.error("Falha ao gerar filhos iniciais. Interrompendo evolução.");
@@ -291,10 +302,63 @@ export class PaiConcreto implements Pai {
       return !this.listaDeEsperanca || this.listaDeEsperanca.length === 0;
   }
 
-  gerarFilhosIniciais(tamanhoPopulacao: number = 10): NivelEsperanca[] {
+  async gerarFilhosIniciais(tamanhoPopulacao: number = 10): Promise<NivelEsperanca[]> {
+      console.log(`------ comando ${this.comando}`)
       console.log(`Gerando ${tamanhoPopulacao} filhos iniciais...`);
+
+      const oraculoSystemPrompt = `Você é o Oráculo, uma inteligência que não executa tarefas, apenas as planeja.
+
+Sua função é estruturar **variações da mesma tarefa principal** a serem realizadas por assistentes inteligentes. Cada variação será enviada para um "filho", que será gerado a partir da sua resposta.
+
+### Requisitos da Resposta:
+
+Você **deve retornar exclusivamente um JSON** contendo uma **lista de objetos**, cada um com os seguintes campos:
+
+- **systemPrompt**: define o papel do assistente, sua personalidade, limitações e estilo.
+- **prompt**: define a tarefa exata que o assistente deve realizar, com as instruções claras.
+
+---
+
+### Regras obrigatórias:
+
+1. Você **não executa a tarefa**.
+2. Você deve analisar a tarefa original enviada pelo usuário e gerar **de 3 a 7 variações** dessa tarefa, cada uma com um foco, abordagem ou perspectiva diferente.
+3. Todas as tarefas devem estar alinhadas com o mesmo objetivo central, mas podem divergir em método, profundidade, tom ou formato.
+4. A linguagem deve ser clara, profissional e objetiva.
+5. A resposta deve ser **exatamente neste formato**:
+
+\`\`\`json
+[
+  {
+    "systemPrompt": "[instruções sobre quem é o assistente e como deve agir]",
+    "prompt": "[tarefa clara, específica e contextualizada que o assistente deve executar]"
+  },
+  ...
+]
+\`\`\`
+
+---
+
+### Exemplo de entrada (você receberá algo assim para processar):
+
+Tarefa: "Qual a cor do céu?"
+
+Sua saída deve conter múltiplas interpretações ou formas de abordar essa mesma pergunta (científica, poética, simplificada, infantil, etc.).
+
+Agora, processe a seguinte tarefa e retorne o JSON estruturado:  
+[TAREFA AQUI]
+`;
+
+    /**
+     * TODO: Ele precisa se conectar ao MCP para receber o prompt inicial. Teremos que ter um MCP Server do ORACULO!
+     * 
+     *      
+     */
+
+      const oraculo = await callLLM(oraculoSystemPrompt, "Qual a cor do ceu?") as {systemPrompt: string, prompt: string}[]
+      
       const iniciais: NivelEsperanca[] = [];
-      for (let i = 0; i < tamanhoPopulacao; i++) {
+      for (let i = 0; i < oraculo.length; i++) {
           const novoId = this.gerarIdUnico();
           const filhoInicial: NivelEsperanca = {
               id: novoId,
@@ -303,8 +367,8 @@ export class PaiConcreto implements Pai {
               payload: {
                   // Payloads iniciais precisam ser definidos baseados no problema
                   // Exemplo genérico:
-                  systemPrompt: "Você é um assistente útil.",
-                  prompt: `Tarefa inicial ${i + 1}.`, // Prompts variados são melhores
+                  systemPrompt: oraculo[i].systemPrompt,
+                  prompt: oraculo[i].prompt, // Prompts variados são melhores
                   mcp: { tools: [], algorithms: [], resources: [], prompts: [] },
                   tokens: { entrada: 0, saida: 0 }, // Zerado inicialmente
                   // parentIds: [], // Geração inicial não tem pais
@@ -508,8 +572,11 @@ async function rodarEvolucao() {
       50,
       95,
       8,
-      10
+      10,
+      "gerar uma frase utilizando tres palavras"
   );
+
+  await pai.init()
 
   console.log("População Inicial:");
   pai.listaDeEsperanca.forEach(f => console.log(` - ID: ${f.id}, Prompt: ${f.payload.prompt}`));
@@ -571,7 +638,29 @@ async function rodarEvolucao() {
       console.log("Arestas:", dadosGenealogia.edges.length);
       console.log(JSON.stringify(dadosGenealogia.edges, null, 2)); // Descomente para ver detalhes
       // Estes dados podem ser usados com bibliotecas como D3.js, Vis.js, etc. para desenhar o grafo.
+
+      const filename = `genealogia.json`;
+      const filePath = path.join('./mcp-inspector-frontend/src/app', 'logs', filename); // pasta logs no mesmo diretório
+
+      const dataToSave = {
+        nodes: dadosGenealogia.nodes,
+        edges: dadosGenealogia.edges,
+      };
+
+      // Garante que a pasta 'logs' existe
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+
+      // Salva o arquivo
+      fs.writeFileSync(filePath, JSON.stringify(dataToSave, null, 2), 'utf-8');
+      console.log(`Arquivo salvo em: ${filePath}`);
   }
 }
 
-rodarEvolucao();
+(async () => {
+    try {
+        await rodarEvolucao();
+    } catch (err) {
+      console.error('Erro na evolução:', err);
+      process.exit(1);
+    }
+  })();

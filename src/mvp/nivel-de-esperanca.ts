@@ -157,7 +157,7 @@ export interface Pai {
      * A implementação é responsável por criar os objetos `NivelEsperanca` iniciais, incluindo IDs e payloads.
      * @returns {NivelEsperanca[]} A lista inicial de filhos.
      */
-    gerarFilhosIniciais?(): NivelEsperanca[];
+    gerarFilhosIniciais?(): Promise<NivelEsperanca[]>;
 
     // Removido 'obterMelhorEsperancaAtual' conforme solicitado.
 
