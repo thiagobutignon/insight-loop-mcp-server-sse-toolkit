@@ -43,8 +43,47 @@ export class McpServerDecorator {
 
   constructor(mcpServer: McpServer) {
     this._mcpServer = mcpServer;
+
+    this.setListTools()
+    this.setExecuteAlgorithm()
   }
 
+
+  setExecuteAlgorithm(): void {
+    this._mcpServer.server.setRequestHandler(
+      z.object({
+        method: z.literal("listAlgorithms"),
+        params: z.object({}).optional()
+      }),
+      async () => {
+        // Return a properly structured response
+        return {
+          algorithms: Array.from(this._registeredAlgorithms.values()).map(algo => ({
+            name: algo.name,
+            description: algo.description || ""
+          }))
+        };
+      }
+    );
+  }
+
+  setListTools(): void {
+    this._mcpServer.server.setRequestHandler(
+      z.object({
+        method: z.literal("executeAlgorithm"),
+        params: z.object({
+          name: z.string(),
+          args: z.any().optional()
+        })
+      }),
+      async (request, extra) => {
+        const { name, args } = request.params;
+        const result = await this.executeAlgorithm(name, args, extra);
+        // Return a properly structured response
+        return { result };
+      }
+    );
+  }
   // Delegate properties to the decorated McpServer
   get server(): Server {
     return this._mcpServer.server;

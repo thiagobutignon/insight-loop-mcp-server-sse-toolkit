@@ -3,6 +3,7 @@ import { Client, ClientOptions } from "@modelcontextprotocol/sdk/client/index.js
 import { RequestOptions } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { Implementation, Notification, Request, Result } from "@modelcontextprotocol/sdk/types.js";
+import { z } from "zod";
 
 /**
  * Custom request for algorithm execution
@@ -103,7 +104,6 @@ export class McpClientDecorator<
     algorithms: Array<{
       name: string;
       description?: string;
-      argsSchema?: Record<string, any>;
     }>
   }> {
     try {
@@ -112,16 +112,31 @@ export class McpClientDecorator<
         method: "listAlgorithms",
         params: {}
       };
-
-      // Use any to bypass TypeScript's overload resolution
-      const result = await (this._client as any).request(request, options);
-
-      return result as any;
+  
+      // Define the expected response schema
+      const resultSchema = z.object({
+        algorithms: z.array(
+          z.object({
+            name: z.string(),
+            description: z.string().optional()
+          })
+        )
+      });
+  
+      // Make the request with proper schema validation
+      const result = await this._client.request(
+        request, 
+        resultSchema,
+        options
+      );
+  
+      return result;
     } catch (error) {
       console.error("Error listing algorithms:", error);
       throw error;
     }
   }
+  
 
   // Delegate methods to the decorated client
   async ping(options?: RequestOptions): Promise<any> {
