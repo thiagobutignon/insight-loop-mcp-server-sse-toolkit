@@ -1,8 +1,11 @@
 
+/** Status operacional de um Filho. */
+export type StatusFilho = 'pendente' | 'executando' | 'concluido' | 'falhou' | 'lisado'; // lisado = autodestruído
 /**
  * Representa o estado avaliado de uma entidade candidata (um "filho"), 
  * como uma configuração de prompt e seus metadados de execução.
  */
+
 export interface NivelEsperanca {
     /** 
      * Identificador único para esta entidade/filho. 
@@ -16,6 +19,10 @@ export interface NivelEsperanca {
      * O valor é determinado por uma avaliação externa do resultado gerado pelo 'payload'.
      */
     pontuacao: number;
+
+    /** Status atual do ciclo de vida do Filho associado a este NivelEsperanca. */
+    status: StatusFilho;
+
 
     /** 
      * A representação concreta da solução/filho e seus metadados.
@@ -49,19 +56,16 @@ export interface NivelEsperanca {
         };
         /** (Opcional) ID(s) do(s) pai(s) que geraram este filho (para genealogia). */
         parentIds?: (number | string)[]; 
+        /** (Opcional) Armazena o resultado da execução para avaliação posterior. */
+        resultadoExecucao?: any;
+        /** (Opcional) Armazena o motivo da falha ou lise. */
+        motivoFalhaOuLise?: string;
     };
 }
 
 // --- Tipos para Genealogia ---
 
-/** Representa um nó no grafo de genealogia. */
-export interface GenealogiaNode {
-    id: number | string;
-    /** Texto a ser exibido no nó (ex: "ID: 123, Score: 85"). */
-    label: string; 
-    // Outras propriedades podem ser adicionadas para estilização ou informação extra
-    pontuacao?: number; 
-}
+export interface GenealogiaNode { id: number | string; label: string; pontuacao?: number; status?: StatusFilho }
 
 /** Representa uma aresta (ligação) no grafo de genealogia. */
 export interface GenealogiaEdge {
@@ -196,52 +200,35 @@ export interface ResultadoExecucaoFilho {
     motivoLise?: string;
 }
 
-// --- Interface Filho ---
-
-/** Motivos possíveis para a lise de um Filho. */
-export type MotivoLise = 
-    | "TIMEOUT" 
-    | "CONSUMO_EXCESSIVO_RECURSOS" 
-    | "HALUCINACAO_DETECTADA" 
-    | "PARAMETROS_PAI_VIOLADOS" 
-    | "REQUISICAO_EXTERNA" 
-    | "ERRO_INTERNO_FATAL";
-
-/**
- * Interface para uma entidade "Filho" ativa, responsável por executar a tarefa 
- * definida em seu payload (originado de um NivelEsperanca) e por sua 
- * potencial autodestruição (lise).
- */
 export interface Filho {
-    /** ID único, geralmente o mesmo do NivelEsperanca que representa/executa. */
-    readonly id: number | string;
+    /** Obtém o identificador único deste Filho. */
+    getId(): number | string;
 
-    /** Referência (somente leitura) ao payload que define sua tarefa. */
-    readonly payload: NivelEsperanca['payload'];
-
-    /**
-     * Executa a tarefa principal definida no payload.
-     * Deve interagir com os sistemas necessários (ex: MCP Server, LLMs).
-     * É responsável por monitorar internamente os gatilhos de lise (timeout, recursos).
-     * 
-     * @param dependencies // Objeto para injetar dependências (ex: cliente MCP, configurações de limite)
-     * @returns {Promise<ResultadoExecucaoFilho>} O resultado detalhado da execução.
-     */
-    executar(dependencies: { mcpClient?: any; limites?: { timeoutMs?: number; maxTokens?: number; /*...*/ } }): Promise<ResultadoExecucaoFilho>;
+    /** Obtém o estado/configuração atual (NivelEsperanca) associado a este Filho. */
+    getNivelEsperanca(): NivelEsperanca;
 
     /**
-     * Força a interrupção e autodestruição do Filho.
-     * Chamado externamente (ex: pelo Pai ou um sistema de monitoramento) ou 
-     * internamente por `executar` se um critério de lise for atingido.
-     * 
-     * @param motivo O motivo da lise.
-     * @param detalhes Informações adicionais sobre a causa.
-     * @returns {Promise<void>} Promessa resolvida quando a lise estiver completa (recursos liberados, etc.).
+     * Executa a tarefa principal do Filho usando seu payload e os recursos do MCP.
+     * Esta função é assíncrona e deve atualizar o status e o resultadoExecucao
+     * no NivelEsperanca associado upon completion or failure.
+     * @param mcpInterface // Uma forma de interagir com os recursos do MCP
+     * @returns {Promise<void>} Promessa resolvida quando a execução termina (sucesso ou falha).
      */
-    lise(motivo: MotivoLise, detalhes?: string): Promise<void>;
+    executarTarefa(mcpInterface: any): Promise<void>; // Substitua 'any' por uma interface MCP real
 
     /**
-     * (Opcional) Retorna o estado atual do Filho (ex: 'ocioso', 'executando', 'lisado', 'concluido').
+     * Ativa o mecanismo de autodestruição (lise) do Filho.
+     * Isso deve atualizar o status para 'lisado' e registrar o motivo.
+     * Pode também liberar recursos associados.
+     * @param motivo A razão pela qual a lise foi acionada.
      */
-    obterEstado?(): 'ocioso' | 'executando' | 'lisado' | 'concluido_sucesso' | 'concluido_erro';
+    realizarLise(motivo: string): void;
+
+    /**
+     * Verifica internamente se os critérios para lise foram atendidos
+     * (ex: consumo excessivo de recursos, timeout, detecção de alucinação).
+     * Se os critérios forem atendidos, deve chamar `realizarLise`.
+     * Esta função pode ser chamada periodicamente ou em pontos chave da execução.
+     */
+    verificarCondicoesDeLise(): void;
 }

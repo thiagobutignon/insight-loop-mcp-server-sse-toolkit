@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node build/index.js",
     "dev": "nodemon --watch src --ext ts --exec 'node --loader ts-node/esm src/index.ts'",
+    "mvp": "nodemon --watch src --ext ts --exec 'node --loader ts-node/esm src/mvp/pai-evolutivo.ts'",
     "test": "jest",
     "tool-manager": "tsx script/cli.ts",
     "dev:up": "make dev-up",
