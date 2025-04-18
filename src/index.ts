@@ -6,6 +6,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { v4 as uuid } from "uuid";
 import { McpServerDecorator } from "./decorators/mcp-server-decorator.js";
+import { registerDynamicAlgorithms } from "./lib/register-algorithm-recursive.js";
 import { registerPromptsFromDirectoryRecursive } from "./lib/register-prompts-recursive.js";
 import { registerDynamicResources } from "./lib/register-resources-recursive.js";
 import { registerToolsFromDirectoryRecursive } from "./lib/register-tools-recursive.js";
@@ -29,6 +30,7 @@ async function createMcpServer(): Promise<McpServerDecorator> {
   const toolsDir = path.resolve(__dirname, "tools");
   const promptsDir = path.resolve(__dirname, "prompts");
   const resourcesDir = path.resolve(__dirname, "resources");
+  const algorithmsDir = path.resolve(__dirname, "algorithms");
 
   const spinner = ora(
     `Registering tools from ${chalk.cyan(toolsDir)}...`
@@ -66,7 +68,18 @@ async function createMcpServer(): Promise<McpServerDecorator> {
     throw error;
   }
   
-  
+  const algorithmsSpinner = ora(`Registering algorithms...`).start();
+  try {
+    await registerDynamicAlgorithms(server, algorithmsDir);
+    
+    algorithmsSpinner.succeed(chalk.green(`🧮 Algorithms registered successfully.`));
+  } catch (error: any) {
+    algorithmsSpinner.fail(
+      chalk.red(`Failed to register algorithms: ${error.message}`)
+    );
+    logError(error);
+    throw error;
+  }
 
   return server;
 }

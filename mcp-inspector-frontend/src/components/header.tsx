@@ -1,8 +1,7 @@
-import { Button } from "@/components/ui/button";
 import { ConnectionStatus } from "@/components/connection-status";
-import { useTheme } from "next-themes";
+import { Button } from "@/components/ui/button";
 
-export type Section =  "Tools" | "Prompts" | "Resources";
+export type Section =  "Tools" | "Prompts" | "Resources" | "Algorithms";
 
 type Props = {
   isConnected: boolean;
@@ -11,6 +10,7 @@ type Props = {
   availablePromptsLength: number;
   availableToolsLength: number;
   availableResourcesLength: number
+  availableAlgorithmsLength: number;
   resetSelections: () => void;
 };
 
@@ -21,10 +21,9 @@ export function Header({
   availablePromptsLength,
   availableToolsLength,
   availableResourcesLength,
+  availableAlgorithmsLength,
   resetSelections,
 }: Props) {
-  const { setTheme } = useTheme();
-
   const handleSelectItem = (section: Section): void => {
     setActiveSection(section);
     resetSelections();
@@ -71,6 +70,16 @@ export function Header({
           disabled={setDisable(availableResourcesLength)}
         >
           Resources
+        </Button>
+        <Button 
+          variant={setVariant("Algorithms")} 
+          size="sm"
+          onClick={() => {
+            handleSelectItem("Algorithms")
+          }}
+          disabled={setDisable(availableAlgorithmsLength)}
+        >
+          Algorithms
         </Button>
         <Button variant="ghost" size="sm" disabled>
           Sampling

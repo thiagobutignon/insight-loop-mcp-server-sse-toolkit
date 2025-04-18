@@ -1,15 +1,16 @@
 "use client"; // Keep client-side interactivity
 
-import { Tool, Prompt, Resource } from "@modelcontextprotocol/sdk/types.js";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { ToolsSidebar } from "@/components/sidebar/tools-sidebar";
+import { Algorithm } from "@/app/model/algorithm";
 import { PromptsSidebar } from "@/components/sidebar/prompts-sidebar";
+import { ToolsSidebar } from "@/components/sidebar/tools-sidebar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Prompt, Resource, Tool } from "@modelcontextprotocol/sdk/types.js";
+import { Section } from "../header";
+import { AlgorithmsSidebar } from "./algorithm-sidebar";
 import { ResourcesSidebar } from "./resources-sidebar";
 
-type ActiveSection = "Tools" | "Prompts" | "Resources";
-
 interface SidebarProps {
-  activeSection: ActiveSection;
+  activeSection: Section;
   availableTools: Tool[];
   selectedTool: Tool | null;
   onSelectTool: (tool: Tool) => void;
@@ -22,6 +23,10 @@ interface SidebarProps {
   availableResources: Resource[];
   selectedResources: Resource | null;
   onSelectResources: (resource: Resource) => void;
+
+  availableAlgorithms: Algorithm[];
+  selectedAlgorithms: Algorithm | null;
+  onSelectAlgorithms: (algorithm: Algorithm) => void;
   
   isConnected: boolean;
 }
@@ -41,6 +46,10 @@ export function Sidebar({
   availableResources,
   selectedResources,
   onSelectResources,
+
+  availableAlgorithms,
+  selectedAlgorithms,
+  onSelectAlgorithms
 
 }: SidebarProps) {
   return (
@@ -75,6 +84,15 @@ export function Sidebar({
               onSelectResources={onSelectResources}
             />
           )}
+
+        {activeSection === "Algorithms" && (
+            <AlgorithmsSidebar
+              availableAlgorithms={availableAlgorithms}
+              selectedAlgorithm={selectedAlgorithms}
+              isConnected={isConnected}
+              onSelectedAlgorithm={onSelectAlgorithms}
+            />
+          )}  
 
           
         </div>

@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { useEffect, useRef, useState } from "react";
 
@@ -14,11 +13,15 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { McpClientDecorator } from "@/decorator/client-decorator";
 import { Prompt, Resource, Tool } from "@modelcontextprotocol/sdk/types.js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
 import { AlertCircle } from "lucide-react";
+import { getParametersFromAlgorithm } from "./mcp/get-parameters-from-algorithm";
 import { getParametersFromPrompt } from "./mcp/get-parameters-from-prompt";
+import { getParametersFromResource } from "./mcp/get-parameters-from-resource";
 import { getParametersFromTool } from "./mcp/get-parameters-from-tool";
+import { Algorithm } from "./model/algorithm";
 import { ParameterInfo } from "./model/parameter-info";
 import { ToolResult } from "./model/tool-result";
 
@@ -27,18 +30,26 @@ const SERVER_URL = process.env.NEXT_PUBLIC_MCP_SERVER_URL;
 export default function HomePage() {
   // --- Existing State (Keep as is) ---
   const [isConnected, setIsConnected] = useState(false);
-  const [mcpClient, setMcpClient] = useState<Client | null>(null);
+  const [mcpClient, setMcpClient] = useState<McpClientDecorator | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_, setTransport] = useState<SSEClientTransport | null>(null);
+
   const [availableTools, setAvailableTools] = useState<Tool[]>([]);
   const [availablePrompts, setAvailablePrompts] = useState<Prompt[]>([]);
   const [availableResources, setAvailableResources] = useState<Resource[]>([]);
+  const [availableAlgorithms, setAvailableAlgorithms] = useState<{
+    name: string;
+    description?: string;
+    argsSchema?: Record<string, any>;
+}[]>([])
+
   const [messages, setMessages] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   const [selectedResources, setSelectedResources] = useState<Resource | null>(null);
+  const [selectedAlgorithms, setSelectedAlgorithms] = useState<Algorithm | null>(null);
 
   const [inputs, setInputs] = useState<Record<string, any>>({});
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -46,7 +57,7 @@ export default function HomePage() {
   const [activeSection, setActiveSection] = useState<Section>("Tools");
 
   useEffect(() => {
-    let clientInstance: Client | null = null;
+    let clientInstance: McpClientDecorator | null = null;
     let transportInstance: SSEClientTransport | null = null;
 
     const connect = async () => {
@@ -61,7 +72,7 @@ export default function HomePage() {
         transportInstance = new SSEClientTransport(new URL(`${SERVER_URL}`));
         setTransport(transportInstance);
 
-        clientInstance = new Client({
+        clientInstance = McpClientDecorator.create({
           name: "insight-loop-mcp-client-sse",
           version: "1.0.0",
         });
@@ -97,7 +108,7 @@ export default function HomePage() {
           addMessage(
             `🛠️ Found tools: ${
               toolsResult.tools.length > 0
-                ? toolsResult.tools.map((t) => t.name).join(", ")
+                ? toolsResult.tools.map((t: Tool) => t.name).join(", ")
                 : "None"
             }`
           );
@@ -106,14 +117,29 @@ export default function HomePage() {
           addMessage("⚠️ Failed to list tools.");
         }
 
-        // List available tools after connecting
         try {
           const resourcesResult = await clientInstance.listResources();
           setAvailableResources(resourcesResult.resources);
           addMessage(
             `🛒 Found resources: ${
               resourcesResult.resources.length > 0
-                ? resourcesResult.resources.map((resource) => resource.name).join(", ")
+                ? resourcesResult.resources.map((resource: Resource) => resource.name).join(", ")
+                : "None"
+            }`
+          );
+        } catch (error) {
+          console.error("Error listing resources:", error);
+          addMessage("⚠️ Failed to list resources.");
+        }
+
+
+        try {
+          const algorithmResult = await clientInstance.listAlgorithms();
+          setAvailableAlgorithms(algorithmResult.algorithms);
+          addMessage(
+            `🛒 Found resources: ${
+              algorithmResult.algorithms.length > 0
+                ? algorithmResult.algorithms.map((algorithm) => algorithm.name).join(", ")
                 : "None"
             }`
           );
@@ -130,7 +156,7 @@ export default function HomePage() {
           addMessage(
             `💡 Found prompts: ${
               promptsResult.prompts.length > 0
-                ? promptsResult.prompts.map((p) => p.name).join(", ")
+                ? promptsResult.prompts.map((p: Prompt) => p.name).join(", ")
                 : "None"
             }`
           );
@@ -158,7 +184,7 @@ export default function HomePage() {
     return () => {
       addMessage("🔌 Cleaning up connection...");
       clientInstance
-        ?.close()
+        ?.client.close()
         .catch((err) => console.error("Error closing client:", err));
       transportInstance?.close(); // Also explicitly close transport
       setIsConnected(false);
@@ -217,6 +243,13 @@ export default function HomePage() {
     addMessage(`Selected resource: ${resource.name}`);
   };
 
+  const handleSelectAlgorithms = (algorithm: Algorithm) => {
+    console.log("Selected Algorithm:", algorithm.name);
+    resetSelections();
+    setSelectedAlgorithms(algorithm);
+    addMessage(`Selected algorithm: ${algorithm.name}`);
+  };
+
 
   /**
    * Gets parameter information from either a Tool or a Prompt.
@@ -226,8 +259,8 @@ export default function HomePage() {
    * @returns An array of ParameterInfo objects, or an empty array if item is null or parameters cannot be determined.
    */
   const getParameters = (
-    item: Tool | Prompt | null,
-    itemType: "Tool" | "Prompt"
+    item: Tool | Prompt | Algorithm | Resource | null,
+    itemType: "Tool" | "Prompt" | "Algorithm" | "Resource"
   ): ParameterInfo[] => {
     if (!item) {
       console.log("Input item is null. Returning empty parameters.");
@@ -264,6 +297,28 @@ export default function HomePage() {
             );
           }
           break;
+        
+        case "Algorithm":
+          if ("arguments" in item) {
+            parameters = getParametersFromAlgorithm(item as Algorithm);
+          } else {
+            console.warn(
+              `Item identified as Algorithm is missing 'arguments'. Item:`,
+              item
+            );
+          }
+          break;
+
+          case "Resource":
+            if ("arguments" in item) {
+              parameters = getParametersFromResource(item as Resource);
+            } else {
+              console.warn(
+                `Item identified as Algorithm is missing 'arguments'. Item:`,
+                item
+              );
+            }
+            break;
 
         default:
           // This case should technically be unreachable due to the itemType constraint,
@@ -524,6 +579,7 @@ export default function HomePage() {
           availablePromptsLength={availablePrompts.length}
           availableToolsLength={availableTools.length}
           availableResourcesLength={availableResources.length}
+          availableAlgorithmsLength={availableAlgorithms.length}
           resetSelections={resetSelections}
         />
         {/* Main Content Area (Sidebar + Log/Input) */}
@@ -544,6 +600,10 @@ export default function HomePage() {
               availableResources={availableResources}
               selectedResources={selectedResources}
               onSelectResources={handleSelectResources}
+
+              availableAlgorithms={availableAlgorithms}
+              selectedAlgorithms={selectedAlgorithms}
+              onSelectAlgorithms={handleSelectAlgorithms}
             />
           </ResizablePanel>
 

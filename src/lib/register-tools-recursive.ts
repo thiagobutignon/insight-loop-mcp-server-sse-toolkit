@@ -3,7 +3,7 @@ import "dotenv/config";
 import { globby } from "globby";
 import { pathToFileURL } from "url";
 import { McpServerDecorator } from "../decorators/mcp-server-decorator.js";
-import { ToolDefinition } from "./tool-definition.js";
+import { ToolDefinition } from "../models/tool-definition.js";
 
 // --- Helper Logs ---
 const log = console.log;
