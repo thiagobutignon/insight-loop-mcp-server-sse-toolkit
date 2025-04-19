@@ -201,14 +201,14 @@ Um `Makefile` é fornecido na raiz do projeto para simplificar operações Docke
 ## 🗺️ Roteiro (Roadmap)
 
 *   [x] Suporte Docker (Configuração básica adicionada, Makefile fornecido)
-*   [ ] Melhorar layout do Chat com LLM no Inspector
+*   [x] Melhorar layout do Chat com LLM no Inspector
 *   [ ] Exemplo de Cliente/Tool em Python
 *   [ ] **Implementar `ResourceManager` e integração de quotas**
 *   [ ] **Implementar `CriticAgent` com métricas de similaridade (Self-Critique)**
 *   [ ] **Integrar `MctsTool` (Monte Carlo Tree Search) na geração de novas soluções**
 *   [ ] **Implementar `SvmClassifierAgent` (Support Vector Machines) para filtragem robusta**
 *   [ ] **Implementar `DpoTrainerAgent` (Direct Preference Optimization) e pipeline de fine-tuning offline**
-*   [ ] Adicionar suporte a Recursos (Resources) no Servidor MCP (além de Tools/Prompts)
+*   [x] Adicionar suporte a Recursos (Resources) no Servidor MCP (além de Tools/Prompts)
 *   [ ] Servidor MCP Sampling (implementar amostragem/seleção de ferramentas/prompts)
 *   [ ] Servidor MCP Roots (definir raízes de contexto ou tarefas)
 *   [ ] Adicionar visualização de Genealogia e status de Rollback no Inspector
