@@ -200,7 +200,7 @@ export interface ResultadoExecucaoFilho {
     motivoLise?: string;
 }
 
-export interface Filho {
+export interface Filho extends Pai {
     /** Obtém o identificador único deste Filho. */
     getId(): number | string;
 

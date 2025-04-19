@@ -1,9 +1,5 @@
-
-
 // --- Implementação Concreta ---
 
-import fs from 'fs';
-import path from 'path';
 import { callLLM } from './call-llm.js';
 import { DadosGenealogia, GenealogiaEdge, GenealogiaNode, NivelEsperanca, Pai, StatusFilho } from "./nivel-de-esperanca.js";
 /**
@@ -87,7 +83,9 @@ export class PaiConcreto implements Pai {
     }
   }
 
-  /** Gera um ID numérico simples e único dentro desta instância. */
+  /** 
+   * TODO precisa ser um UUID
+   * Gera um ID numérico simples e único dentro desta instância. */
   private gerarIdUnico(): number {
       return this.proximoIdDisponivel++;
   }
@@ -304,7 +302,7 @@ export class PaiConcreto implements Pai {
 
   async gerarFilhosIniciais(tamanhoPopulacao: number = 10): Promise<NivelEsperanca[]> {
       console.log(`------ comando ${this.comando}`)
-      console.log(`Gerando ${tamanhoPopulacao} filhos iniciais...`);
+      
 
       const oraculoSystemPrompt = `Você é o Oráculo, uma inteligência que não executa tarefas, apenas as planeja.
 
@@ -355,8 +353,8 @@ Agora, processe a seguinte tarefa e retorne o JSON estruturado:
      *      
      */
 
-      const oraculo = await callLLM(oraculoSystemPrompt, "Qual a cor do ceu?") as {systemPrompt: string, prompt: string}[]
-      
+      const oraculo = await callLLM(oraculoSystemPrompt, this.comando) as {systemPrompt: string, prompt: string}[]
+      console.log(`Gerando ${oraculo.length} filhos iniciais...`);
       const iniciais: NivelEsperanca[] = [];
       for (let i = 0; i < oraculo.length; i++) {
           const novoId = this.gerarIdUnico();
@@ -564,6 +562,15 @@ Agora, processe a seguinte tarefa e retorne o JSON estruturado:
           console.warn(`Tentativa de atualizar pontuação para filho não encontrado: ${id}`);
       }
   }
+
+//   public gerarFilho(posicao: number): void {
+//     const item = this.listaDeEsperanca[posicao]
+
+//     const prompt = item.payload.prompt
+//     const systemPrompt = item.payload.systemPrompt
+
+//     const filhoLLM = new FilhoConcreto()
+//   }
 }
 
 async function rodarEvolucao() {
@@ -573,87 +580,92 @@ async function rodarEvolucao() {
       95,
       8,
       10,
-      "gerar uma frase utilizando tres palavras"
+      "qual a cor do ceu?"
   );
 
   await pai.init()
 
-  console.log("População Inicial:");
-  pai.listaDeEsperanca.forEach(f => console.log(` - ID: ${f.id}, Prompt: ${f.payload.prompt}`));
+  console.log(`---- Lista de esperança ${JSON.stringify(pai.listaDeEsperanca)}`)
 
-  for (let i = 0; i < 10; i++) { // Simula 10 ciclos de evolução
-      console.log(`\n--- Ciclo de Avaliação e Evolução ${i + 1} ---`);
 
-      // 1. SIMULAÇÃO: Executar tarefas e avaliar (NORMALMENTE EXTERNO)
-      // Em um cenário real, aqui você pegaria cada filho 'pendente',
-      // chamaria um sistema externo (LLM, etc.) com seu payload,
-      // receberia o resultado, calcularia a pontuação, e atualizaria o NivelEsperanca.
-      console.log("Simulando execução e avaliação dos filhos...");
-      for (const filho of pai.listaDeEsperanca) {
-           if (filho.status === 'pendente') {
-               // Simula uma pontuação aleatória
-               const pontuacao = Math.floor(Math.random() * 110); // 0-109
-               const sucesso = pontuacao >= 0; // Assume falha se negativo (não usado aqui)
-               const status: StatusFilho = pontuacao >= 50 ? 'concluido' : 'falhou';
-               pai.atualizarPontuacaoFilho(filho.id, pontuacao, status, `Resultado simulado para ${filho.id}`);
-               console.log(` -> Filho ${filho.id} avaliado: Pontuação=${pontuacao}, Status=${status}`);
-           }
-      }
 
-      // 2. Evoluir para a próxima geração
-      pai.evoluirParaProximaGeracao();
 
-      // Verifica se atingiu ponto ótimo ou max gerações (a própria evoluir faz isso)
-       const melhor = pai.obterMelhorEsperancaAtual();
-      if (melhor && melhor.pontuacao >= pai.pontoOtimo) {
-          console.log(`\n!!! Solução ótima encontrada na geração ${pai.numeroGeracaoAtual} !!!`);
-          console.log(melhor);
-          break;
-      }
-       if (pai.numeroGeracaoAtual > pai.maxGeracoes) {
-           console.log("\n!!! Limite de gerações atingido !!!");
-           break;
-       }
-      if (pai.listaDeEsperanca.length === 0) {
-           console.log("\n!!! População extinta !!!");
-           break;
-      }
-  }
+//   console.log("População Inicial:");
+//   pai.listaDeEsperanca.forEach(f => console.log(` - ID: ${f.id}, Prompt: ${f.payload.prompt}`));
 
-  console.log("\n--- Evolução Concluída ---");
-  const melhorFinal = pai.obterMelhorEsperancaAtual();
-  if (melhorFinal) {
-      console.log("Melhor filho encontrado:");
-      console.log(melhorFinal);
-  } else {
-      console.log("Nenhum filho sobreviveu.");
-  }
+//   for (let i = 0; i < 10; i++) { // Simula 10 ciclos de evolução
+//       console.log(`\n--- Ciclo de Avaliação e Evolução ${i + 1} ---`);
 
-  // 3. Obter dados da genealogia para visualização
-  const dadosGenealogia = pai.obterDadosGenealogia();
-  if (dadosGenealogia) {
-      console.log("\n--- Dados da Genealogia ---");
-      console.log("Nós:", dadosGenealogia.nodes.length);
-      console.log(JSON.stringify(dadosGenealogia.nodes, null, 2)); // Descomente para ver detalhes
-      console.log("Arestas:", dadosGenealogia.edges.length);
-      console.log(JSON.stringify(dadosGenealogia.edges, null, 2)); // Descomente para ver detalhes
-      // Estes dados podem ser usados com bibliotecas como D3.js, Vis.js, etc. para desenhar o grafo.
+//       // 1. SIMULAÇÃO: Executar tarefas e avaliar (NORMALMENTE EXTERNO)
+//       // Em um cenário real, aqui você pegaria cada filho 'pendente',
+//       // chamaria um sistema externo (LLM, etc.) com seu payload,
+//       // receberia o resultado, calcularia a pontuação, e atualizaria o NivelEsperanca.
+//       console.log("Simulando execução e avaliação dos filhos...");
+//       for (const filho of pai.listaDeEsperanca) {
+//            if (filho.status === 'pendente') {
+//                // Simula uma pontuação aleatória
+//                const pontuacao = Math.floor(Math.random() * 110); // 0-109
+//                const sucesso = pontuacao >= 0; // Assume falha se negativo (não usado aqui)
+//                const status: StatusFilho = pontuacao >= 50 ? 'concluido' : 'falhou';
+//                pai.atualizarPontuacaoFilho(filho.id, pontuacao, status, `Resultado simulado para ${filho.id}`);
+//                console.log(` -> Filho ${filho.id} avaliado: Pontuação=${pontuacao}, Status=${status}`);
+//            }
+//       }
 
-      const filename = `genealogia.json`;
-      const filePath = path.join('./mcp-inspector-frontend/src/app', 'logs', filename); // pasta logs no mesmo diretório
+//       // 2. Evoluir para a próxima geração
+//       pai.evoluirParaProximaGeracao();
 
-      const dataToSave = {
-        nodes: dadosGenealogia.nodes,
-        edges: dadosGenealogia.edges,
-      };
+//       // Verifica se atingiu ponto ótimo ou max gerações (a própria evoluir faz isso)
+//        const melhor = pai.obterMelhorEsperancaAtual();
+//       if (melhor && melhor.pontuacao >= pai.pontoOtimo) {
+//           console.log(`\n!!! Solução ótima encontrada na geração ${pai.numeroGeracaoAtual} !!!`);
+//           console.log(melhor);
+//           break;
+//       }
+//        if (pai.numeroGeracaoAtual > pai.maxGeracoes) {
+//            console.log("\n!!! Limite de gerações atingido !!!");
+//            break;
+//        }
+//       if (pai.listaDeEsperanca.length === 0) {
+//            console.log("\n!!! População extinta !!!");
+//            break;
+//       }
+//   }
 
-      // Garante que a pasta 'logs' existe
-      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+//   console.log("\n--- Evolução Concluída ---");
+//   const melhorFinal = pai.obterMelhorEsperancaAtual();
+//   if (melhorFinal) {
+//       console.log("Melhor filho encontrado:");
+//       console.log(melhorFinal);
+//   } else {
+//       console.log("Nenhum filho sobreviveu.");
+//   }
 
-      // Salva o arquivo
-      fs.writeFileSync(filePath, JSON.stringify(dataToSave, null, 2), 'utf-8');
-      console.log(`Arquivo salvo em: ${filePath}`);
-  }
+//   // 3. Obter dados da genealogia para visualização
+//   const dadosGenealogia = pai.obterDadosGenealogia();
+//   if (dadosGenealogia) {
+//       console.log("\n--- Dados da Genealogia ---");
+//       console.log("Nós:", dadosGenealogia.nodes.length);
+//       console.log(JSON.stringify(dadosGenealogia.nodes, null, 2)); // Descomente para ver detalhes
+//       console.log("Arestas:", dadosGenealogia.edges.length);
+//       console.log(JSON.stringify(dadosGenealogia.edges, null, 2)); // Descomente para ver detalhes
+//       // Estes dados podem ser usados com bibliotecas como D3.js, Vis.js, etc. para desenhar o grafo.
+
+//       const filename = `genealogia.json`;
+//       const filePath = path.join('./mcp-inspector-frontend/src/app', 'logs', filename); // pasta logs no mesmo diretório
+
+//       const dataToSave = {
+//         nodes: dadosGenealogia.nodes,
+//         edges: dadosGenealogia.edges,
+//       };
+
+//       // Garante que a pasta 'logs' existe
+//       fs.mkdirSync(path.dirname(filePath), { recursive: true });
+
+//       // Salva o arquivo
+//       fs.writeFileSync(filePath, JSON.stringify(dataToSave, null, 2), 'utf-8');
+//       console.log(`Arquivo salvo em: ${filePath}`);
+//   }
 }
 
 (async () => {
