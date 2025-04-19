@@ -1,50 +1,63 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { useState, useEffect, useRef } from "react";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { useEffect, useRef, useState } from "react";
 
-import { Tool, Prompt } from "@modelcontextprotocol/sdk/types.js";
-import { ToolResult } from "./model/tool-result";
-import { ParameterInfo } from "./model/parameter-info";
+import { AIForm } from "@/components/ai-form";
+import { Header, Section } from "@/components/header";
+import { LogArea } from "@/components/log-area";
+import { ParameterForm } from "@/components/parameter-form";
+import { Sidebar } from "@/components/sidebar/sidebar";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { McpClientDecorator } from "@/decorator/client-decorator";
+import { Prompt, Resource, Tool } from "@modelcontextprotocol/sdk/types.js";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs";
 import { AlertCircle } from "lucide-react";
-import { Sidebar } from "@/components/sidebar";
-import { ParameterForm } from "@/components/parameter-form";
-import { Header } from "@/components/header";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@radix-ui/react-tabs";
+import { getParametersFromAlgorithm } from "./mcp/get-parameters-from-algorithm";
 import { getParametersFromPrompt } from "./mcp/get-parameters-from-prompt";
+import { getParametersFromResource } from "./mcp/get-parameters-from-resource";
 import { getParametersFromTool } from "./mcp/get-parameters-from-tool";
-import { AIForm } from "@/components/ai-form";
-import { LogArea } from "@/components/log-area";
+import { Algorithm } from "./model/algorithm";
+import { ParameterInfo } from "./model/parameter-info";
+import { ToolResult } from "./model/tool-result";
 
 const SERVER_URL = process.env.NEXT_PUBLIC_MCP_SERVER_URL;
-
-type ActiveSection = "Tools" | "Prompts";
 
 export default function HomePage() {
   // --- Existing State (Keep as is) ---
   const [isConnected, setIsConnected] = useState(false);
-  const [mcpClient, setMcpClient] = useState<Client | null>(null);
+  const [mcpClient, setMcpClient] = useState<McpClientDecorator | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_, setTransport] = useState<SSEClientTransport | null>(null);
+
   const [availableTools, setAvailableTools] = useState<Tool[]>([]);
   const [availablePrompts, setAvailablePrompts] = useState<Prompt[]>([]);
+  const [availableResources, setAvailableResources] = useState<Resource[]>([]);
+  const [availableAlgorithms, setAvailableAlgorithms] = useState<{
+    name: string;
+    description?: string;
+    argsSchema?: Record<string, any>;
+}[]>([])
+
   const [messages, setMessages] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
+  const [selectedResources, setSelectedResources] = useState<Resource | null>(null);
+  const [selectedAlgorithms, setSelectedAlgorithms] = useState<Algorithm | null>(null);
+
   const [inputs, setInputs] = useState<Record<string, any>>({});
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  const [activeSection, setActiveSection] = useState<ActiveSection>("Tools");
+  const [activeSection, setActiveSection] = useState<Section>("Tools");
 
   useEffect(() => {
-    let clientInstance: Client | null = null;
+    let clientInstance: McpClientDecorator | null = null;
     let transportInstance: SSEClientTransport | null = null;
 
     const connect = async () => {
@@ -59,7 +72,7 @@ export default function HomePage() {
         transportInstance = new SSEClientTransport(new URL(`${SERVER_URL}`));
         setTransport(transportInstance);
 
-        clientInstance = new Client({
+        clientInstance = McpClientDecorator.create({
           name: "insight-loop-mcp-client-sse",
           version: "1.0.0",
         });
@@ -95,13 +108,44 @@ export default function HomePage() {
           addMessage(
             `🛠️ Found tools: ${
               toolsResult.tools.length > 0
-                ? toolsResult.tools.map((t) => t.name).join(", ")
+                ? toolsResult.tools.map((t: Tool) => t.name).join(", ")
                 : "None"
             }`
           );
         } catch (error) {
           console.error("Error listing tools:", error);
           addMessage("⚠️ Failed to list tools.");
+        }
+
+        try {
+          const resourcesResult = await clientInstance.listResources();
+          setAvailableResources(resourcesResult.resources);
+          addMessage(
+            `🛒 Found resources: ${
+              resourcesResult.resources.length > 0
+                ? resourcesResult.resources.map((resource: Resource) => resource.name).join(", ")
+                : "None"
+            }`
+          );
+        } catch (error) {
+          console.error("Error listing resources:", error);
+          addMessage("⚠️ Failed to list resources.");
+        }
+
+
+        try {
+          const algorithmResult = await clientInstance.listAlgorithms();
+          setAvailableAlgorithms(algorithmResult.algorithms);
+          addMessage(
+            `🛒 Found resources: ${
+              algorithmResult.algorithms.length > 0
+                ? algorithmResult.algorithms.map((algorithm) => algorithm.name).join(", ")
+                : "None"
+            }`
+          );
+        } catch (error) {
+          console.error("Error listing resources:", error);
+          addMessage("⚠️ Failed to list resources.");
         }
 
         // List available prompts
@@ -112,7 +156,7 @@ export default function HomePage() {
           addMessage(
             `💡 Found prompts: ${
               promptsResult.prompts.length > 0
-                ? promptsResult.prompts.map((p) => p.name).join(", ")
+                ? promptsResult.prompts.map((p: Prompt) => p.name).join(", ")
                 : "None"
             }`
           );
@@ -140,14 +184,14 @@ export default function HomePage() {
     return () => {
       addMessage("🔌 Cleaning up connection...");
       clientInstance
-        ?.close()
+        ?.client.close()
         .catch((err) => console.error("Error closing client:", err));
       transportInstance?.close(); // Also explicitly close transport
       setIsConnected(false);
       setMcpClient(null);
       setTransport(null);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // --- Existing Functions (Keep addMessage, scroll useEffect, resetSelections, handleSelectTool, handleSelectPrompt, handleInputChange, parseParamValue, handleCallMcpTool, handleCallMcpPrompt) ---
@@ -192,6 +236,21 @@ export default function HomePage() {
     addMessage(`Selected prompt: ${prompt.name}`);
   };
 
+  const handleSelectResources = (resource: Resource) => {
+    console.log("Selected Resource:", resource.name);
+    resetSelections();
+    setSelectedResources(resource);
+    addMessage(`Selected resource: ${resource.name}`);
+  };
+
+  const handleSelectAlgorithms = (algorithm: Algorithm) => {
+    console.log("Selected Algorithm:", algorithm.name);
+    resetSelections();
+    setSelectedAlgorithms(algorithm);
+    addMessage(`Selected algorithm: ${algorithm.name}`);
+  };
+
+
   /**
    * Gets parameter information from either a Tool or a Prompt.
    *
@@ -200,8 +259,8 @@ export default function HomePage() {
    * @returns An array of ParameterInfo objects, or an empty array if item is null or parameters cannot be determined.
    */
   const getParameters = (
-    item: Tool | Prompt | null,
-    itemType: "Tool" | "Prompt"
+    item: Tool | Prompt | Algorithm | Resource | null,
+    itemType: "Tool" | "Prompt" | "Algorithm" | "Resource"
   ): ParameterInfo[] => {
     if (!item) {
       console.log("Input item is null. Returning empty parameters.");
@@ -238,6 +297,28 @@ export default function HomePage() {
             );
           }
           break;
+        
+        case "Algorithm":
+          if ("arguments" in item) {
+            parameters = getParametersFromAlgorithm(item as Algorithm);
+          } else {
+            console.warn(
+              `Item identified as Algorithm is missing 'arguments'. Item:`,
+              item
+            );
+          }
+          break;
+
+          case "Resource":
+            if ("arguments" in item) {
+              parameters = getParametersFromResource(item as Resource);
+            } else {
+              console.warn(
+                `Item identified as Algorithm is missing 'arguments'. Item:`,
+                item
+              );
+            }
+            break;
 
         default:
           // This case should technically be unreachable due to the itemType constraint,
@@ -463,7 +544,7 @@ export default function HomePage() {
       // they might trigger other actions or messages. The standard SDK might just return success/error.
       // Log the raw result for debugging.
       addMessage(
-        `📄 Prompt Result Structure: ${JSON.stringify(result, null, 2)}`
+        `📄 Prompt Result Structure:\n${JSON.stringify(result, null, 2)}`
       );
 
       if (result.isError) {
@@ -496,6 +577,9 @@ export default function HomePage() {
           activeSection={activeSection}
           setActiveSection={setActiveSection}
           availablePromptsLength={availablePrompts.length}
+          availableToolsLength={availableTools.length}
+          availableResourcesLength={availableResources.length}
+          availableAlgorithmsLength={availableAlgorithms.length}
           resetSelections={resetSelections}
         />
         {/* Main Content Area (Sidebar + Log/Input) */}
@@ -508,9 +592,18 @@ export default function HomePage() {
               selectedTool={selectedTool}
               isConnected={isConnected}
               onSelectTool={handleSelectTool}
+              
               availablePrompts={availablePrompts}
               selectedPrompt={selectedPrompt}
               onSelectPrompt={handleSelectPrompt}
+              
+              availableResources={availableResources}
+              selectedResources={selectedResources}
+              onSelectResources={handleSelectResources}
+
+              availableAlgorithms={availableAlgorithms}
+              selectedAlgorithms={selectedAlgorithms}
+              onSelectAlgorithms={handleSelectAlgorithms}
             />
           </ResizablePanel>
 
@@ -519,10 +612,10 @@ export default function HomePage() {
           {/* Main Area (Log + Parameters + Input) */}
           <ResizablePanel defaultSize={75} minSize={30}>
             <ResizablePanelGroup direction="vertical">
-              <div className="flex flex-col h-full">
+              <div className="flex flex-col h-full overflow-y-auto">
                 {/* Log Area */}
-                <ResizablePanel defaultSize={50} minSize={30}>
-                  <div className="p-4 h-full">
+                <ResizablePanel defaultSize={50} minSize={30} className="overflow-y-auto">
+                  <div className="p-4 h-full overflow-y-auto">
                     <LogArea messages={messages} />
                   </div>
                 </ResizablePanel>

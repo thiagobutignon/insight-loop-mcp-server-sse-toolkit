@@ -30,7 +30,8 @@ export function PromptsSidebar({
             disabled={!isConnected}
           >
             <span className="font-medium">{prompt.name}</span>
-            <span className="text-xs text-muted-foreground truncate w-full">
+            
+            <span className="text-xs text-white-foreground truncate w-full">
               {prompt.description || "No description"}
             </span>
           </Button>

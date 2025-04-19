@@ -1,12 +1,16 @@
-import { Button } from "@/components/ui/button";
 import { ConnectionStatus } from "@/components/connection-status";
-import { useTheme } from "next-themes";
+import { Button } from "@/components/ui/button";
+
+export type Section =  "Tools" | "Prompts" | "Resources" | "Algorithms";
 
 type Props = {
   isConnected: boolean;
-  activeSection: "Tools" | "Prompts";
-  setActiveSection: (section: "Tools" | "Prompts") => void;
+  activeSection: Section
+  setActiveSection: (section: Section) => void;
   availablePromptsLength: number;
+  availableToolsLength: number;
+  availableResourcesLength: number
+  availableAlgorithmsLength: number;
   resetSelections: () => void;
 };
 
@@ -15,37 +19,67 @@ export function Header({
   activeSection,
   setActiveSection,
   availablePromptsLength,
+  availableToolsLength,
+  availableResourcesLength,
+  availableAlgorithmsLength,
   resetSelections,
 }: Props) {
-  const { setTheme } = useTheme();
+  const handleSelectItem = (section: Section): void => {
+    setActiveSection(section);
+    resetSelections();
+  } 
+
+  const setVariant = (section: Section) => {
+    return activeSection === section ? "secondary" : "ghost"
+  }
+
+  const setDisable = (length: number): boolean => {
+    return  length === 0 && !isConnected
+  } 
 
   return (
     <header className="flex h-16 items-center border-b px-4 md:px-6 shrink-0">
       <nav className="flex-1 flex items-center gap-4 sm:gap-6 text-sm font-medium">
         <Button
-          variant={activeSection === "Tools" ? "secondary" : "ghost"}
+          variant={setVariant("Tools")}
           size="sm"
           onClick={() => {
-            setActiveSection("Tools");
-            resetSelections(); // Reset selection when changing sections
+            handleSelectItem("Tools")
           }}
+          disabled={setDisable(availableToolsLength)}
         >
           Tools
         </Button>
         <Button
-          variant={activeSection === "Prompts" ? "secondary" : "ghost"}
+          variant={setVariant("Prompts")}
           size="sm"
           onClick={() => {
-            setActiveSection("Prompts");
-            resetSelections();
+            handleSelectItem("Prompts")
           }}
-          disabled={availablePromptsLength === 0 && !isConnected} // Disable if no prompts *and* not connected
+          disabled={setDisable(availablePromptsLength)} // Disable if no prompts *and* not connected
         >
           Prompts
         </Button>
 
-        <Button variant="ghost" size="sm" disabled>
+        <Button 
+          variant={setVariant("Resources")} 
+          size="sm"
+          onClick={() => {
+            handleSelectItem("Resources")
+          }}
+          disabled={setDisable(availableResourcesLength)}
+        >
           Resources
+        </Button>
+        <Button 
+          variant={setVariant("Algorithms")} 
+          size="sm"
+          onClick={() => {
+            handleSelectItem("Algorithms")
+          }}
+          disabled={setDisable(availableAlgorithmsLength)}
+        >
+          Algorithms
         </Button>
         <Button variant="ghost" size="sm" disabled>
           Sampling

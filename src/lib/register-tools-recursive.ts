@@ -1,9 +1,9 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { ToolDefinition } from "./tool-definition.js";
-import "dotenv/config";
-import { pathToFileURL } from "url";
-import { globby } from "globby";
 import chalk from "chalk"; // Import chalk
+import "dotenv/config";
+import { globby } from "globby";
+import { pathToFileURL } from "url";
+import { McpServerDecorator } from "../decorators/mcp-server-decorator.js";
+import { ToolDefinition } from "../models/tool-definition.js";
 
 // --- Helper Logs ---
 const log = console.log;
@@ -12,7 +12,7 @@ const logError = console.error;
 // ---
 
 export async function registerToolsFromDirectoryRecursive(
-  server: McpServer,
+  server: McpServerDecorator,
   baseDirectoryPath: string
 ): Promise<void> {
   const isDev = process.env.NODE_ENV !== "PRODUCTION";
