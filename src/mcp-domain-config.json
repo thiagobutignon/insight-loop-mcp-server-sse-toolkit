@@ -1,0 +1,58 @@
+[
+  {
+    "domainName": "SystemAndInfrastructure",
+    "description": "Manages application configuration, data sources, and provides server environment information.",
+    "assets": {
+      "tools": [],
+      "prompts": [],
+      "resources": [
+        "/Users/thiagobutignon/dev/insight-loop-mcp-server-sse-toolkit/src/resources/config.ts",
+        "/Users/thiagobutignon/dev/insight-loop-mcp-server-sse-toolkit/src/resources/data-source.ts"
+      ],
+      "algorithms": [
+        "/Users/thiagobutignon/dev/insight-loop-mcp-server-sse-toolkit/src/algorithms/server-info.ts"
+      ]
+    }
+  },
+  {
+    "domainName": "ContentAndAIProcessing",
+    "description": "Handles text generation, summarization, and general text analysis using AI prompts and algorithms.",
+    "assets": {
+      "tools": [],
+      "prompts": [
+        "/Users/thiagobutignon/dev/insight-loop-mcp-server-sse-toolkit/src/prompts/create-joke.ts",
+        "/Users/thiagobutignon/dev/insight-loop-mcp-server-sse-toolkit/src/prompts/summarize.ts"
+      ],
+      "resources": [],
+      "algorithms": [
+        "/Users/thiagibutignon/dev/insight-loop-mcp-server-sse-toolkit/src/algorithms/text-analyzer.ts"
+      ]
+    }
+  },
+  {
+    "domainName": "DataAndCoreUtilities",
+    "description": "Provides fundamental data processing capabilities and basic utility functions like calculations.",
+    "assets": {
+      "tools": [
+        "/Users/thiagobutignon/dev/insight-loop-mcp-server-sse-toolkit/src/tools/sum-two.ts"
+      ],
+      "prompts": [],
+      "resources": [],
+      "algorithms": [
+        "/Users/thiagobutignon/dev/insight-loop-mcp-server-sse-toolkit/src/algorithms/data-processor.ts"
+      ]
+    }
+  },
+  {
+    "domainName": "UserProfile",
+    "description": "Manages user-specific data and profile information.",
+    "assets": {
+      "tools": [],
+      "prompts": [],
+      "resources": [
+        "/Users/thiagobutignon/dev/insight-loop-mcp-server-sse-toolkit/src/resources/user-profile.ts"
+      ],
+      "algorithms": []
+    }
+  }
+]

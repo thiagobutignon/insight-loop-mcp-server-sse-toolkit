@@ -8,7 +8,7 @@ Este projeto implementa uma **plataforma agentic avançada** baseada no **MCP (M
 
 A arquitetura centraliza-se na **"Chain of Intelligence" (Cadeia de Inteligência)**: um fluxo hierárquico (Oráculo ➔ Orquestrador ➔ Agentes Específicos/Ferramentas) que permite decomposição de tarefas complexas, enriquecimento de dados em tempo real e coordenação robusta. A plataforma suporta o carregamento dinâmico de **componentes atômicos** (ferramentas, prompts, recursos) e incorpora mecanismos planejados para resiliência (Checkpoints & Rollback), exploração estratégica (**MCTS - Monte Carlo Tree Search**), avaliação de qualidade (Self-Critique, **SVM - Support Vector Machines**) e aprendizado contínuo (**DPO - Direct Preference Optimization**).
 
-Inclui também uma interface de linha de comando (**CLI - Command-Line Interface**) para auxiliar no desenvolvimento e um inspetor web (Frontend) para interagir e monitorar o ecossistema agentic.
+Inclui uma interface de linha de comando (**CLI - Command-Line Interface**) para auxiliar no desenvolvimento e um inspetor web (Frontend) para interagir, monitorar o ecossistema agentic e facilitar o debug de Tools, Resources, Algorithms e Prompts.
 
 ## 📚 Índice
 
